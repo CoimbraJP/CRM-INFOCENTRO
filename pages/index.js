@@ -165,6 +165,23 @@ export default function CrmPage() {
     XLSX.writeFile(wb, "CRM_InfoCentro_Backup_" + hoje() + ".xlsx");
   }
 
+  async function limparTudo() {
+    if (leads.length === 0) { alert("Já não há clientes cadastrados no CRM."); return; }
+    const passo1 = confirm(
+      `Isso vai apagar PERMANENTEMENTE os ${leads.length} clientes do CRM (cards, observações, compras, mensagens agendadas).\n\n` +
+      `NÃO afeta a página OS (que é só um espelho do PDV, não fica salvo aqui).\n\n` +
+      `Recomendo clicar em "Backup" antes, se ainda não fez. Quer continuar?`
+    );
+    if (!passo1) return;
+    const digitado = prompt('Última confirmação: digite APAGAR (tudo maiúsculo) para excluir todos os clientes.');
+    if (digitado !== "APAGAR") { if (digitado !== null) alert("Não bateu com \"APAGAR\" — nada foi apagado."); return; }
+    const r = await fetch("/api/leads?all=1&confirmar=APAGAR", { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { alert("Não consegui limpar: " + (j.error || r.status)); return; }
+    setLeads([]);
+    alert(`${j.apagados ?? 0} cliente(s) apagado(s). O CRM está zerado.`);
+  }
+
   async function novaLista() {
     const nome = prompt("Nome da nova lista:");
     if (!nome) return;
@@ -215,6 +232,7 @@ export default function CrmPage() {
             <button className="btn2" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> Cliente</button>
             <button className="btn2" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> Importar</button>
             <button className="btn2 primario" onClick={exportar}><Ico n="download" size={15} /> Backup</button>
+            <button className="btn2 perigo" onClick={limparTudo} title="Apaga todos os clientes do CRM (não afeta a página OS)"><Ico n="trash" size={15} /> Limpar dados</button>
           </div>
 
           <div className="painel-hoje">

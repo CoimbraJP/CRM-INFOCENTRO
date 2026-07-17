@@ -41,7 +41,15 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      const { _id } = req.query;
+      const { _id, all, confirmar } = req.query;
+
+      // apaga TODOS os clientes do CRM (leads) — nunca toca em OS/PDV, que nem fica neste banco.
+      if (all === "1") {
+        if (confirmar !== "APAGAR") return res.status(400).json({ error: "confirmação inválida" });
+        const r = await col.deleteMany({});
+        return res.json({ ok: true, apagados: r.deletedCount });
+      }
+
       if (!_id) return res.status(400).json({ error: "faltou _id" });
       await col.deleteOne({ _id: new ObjectId(_id) });
       return res.json({ ok: true });
