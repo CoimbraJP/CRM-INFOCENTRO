@@ -2,14 +2,24 @@
 
 CRM estilo Kanban para transformar os leads de impressão em clientes de manutenção e vendas.
 
-## O que ele faz
+## Páginas (menu lateral)
 
-- **Kanban drag & drop** — listas INBOX → CONTACTADO → CONVERSANDO → CLIENTE 💰 → RECORRENTE + NÃO PERTURBE 🚫 (e crie quantas quiser no botão ＋)
+- **CRM** — Kanban principal: INBOX → CONTACTADO → CONVERSANDO → CLIENTE 💰 → RECORRENTE + NÃO PERTURBE 🚫 (crie mais listas no botão ＋)
+- **OS** — espelho somente-leitura das Ordens de Serviço do PDV. Precisa de `PDV_API_URL` e `PDV_API_TOKEN` nas envs (ver seção own abaixo); até lá mostra uma tela explicando o que falta.
+- **Estratégias** — cada card é uma etapa da cadência (Apresentação D+0, Dica D+5, Oferta D+30, Aniversário, Resposta a SAIR). Edite os textos ali e o CRM inteiro passa a usar a versão nova.
+- **Aniversários** — lista de clientes ordenada pelo próximo aniversário, com botão de parabéns via WhatsApp.
+- **Etiquetas** — segundo Kanban, independente do board do CRM: colunas = etiquetas. Arrastar um cliente pra uma coluna aplica a etiqueta nele (sincronizado com os chips do card).
+- **Calendário** — mês grande com pontos coloridos (mensagem agendada, atrasada, aniversário), painel do dia selecionado e timeline dos próximos eventos.
+
+## O que o Kanban principal faz
+
+- **Kanban drag & drop** com o board acima
 - **Importação de Excel** — lê sua planilha (nome, telefone, serviço, nascimento) e cria os cards no INBOX; ao importar, pode preencher automaticamente a agenda **D+0 / D+5 / D+30** de cada cliente com as mensagens prontas
 - **Painel "📬 Enviar hoje"** — abre todo dia mostrando as mensagens vencendo, atrasadas e aniversariantes; botão do WhatsApp já abre a conversa com o texto personalizado, você só aperta enviar
-- **Card completo** — 📝 observações, 📅 agenda de mensagens, 💬 WhatsApp direto, 💰 histórico de compras (com soma por lista, igual você queria), 🏷️ etiquetas coloridas pesquisáveis, 🎂 aniversário
+- **Card completo** — 📝 observações, 📅 agenda de mensagens, 💬 WhatsApp direto, 💰 histórico de compras (com soma por lista), 🏷️ etiquetas coloridas pesquisáveis, 🎂 aniversário
 - **Backup Excel** — botão que exporta tudo (clientes, compras, mensagens) pra planilha, mantendo seu backup local sempre igual ao online
 - **NÃO PERTURBE** — cards nessa lista têm envio bloqueado (proteção LGPD e do seu número)
+- **Tema claro/escuro** — ícone de sol/lua na topbar (escuro = preto + dourado do logo)
 
 ## Deploy passo a passo (grátis)
 
@@ -37,7 +47,19 @@ npm run dev                        # abre em http://localhost:3000
 
 ## Editar as mensagens da cadência
 
-Tudo em **`lib/messages.js`** — edite os textos, adicione variações. `{nome}` vira o primeiro nome do cliente automaticamente.
+Duas formas: pela tela **Estratégias** dentro do app (recomendado — salva no banco e já vale pros próximos envios), ou direto em **`lib/messages.js`** (são os textos padrão usados até você personalizar cada um pela tela). `{nome}` vira o primeiro nome do cliente automaticamente nos dois casos.
+
+## Ativar a página OS (espelho do PDV)
+
+O CRM nunca acessa o banco `infopdv` diretamente — a leitura é via HTTP, seguindo as diretrizes de convivência dos dois sistemas. Pra ativar:
+
+1. O PDV precisa expor um endpoint de leitura (ex.: `GET /api/sync?collection=serviceorders`) protegido por um token.
+2. No Vercel do **CRM**, adicione as envs:
+   - `PDV_API_URL` = URL pública do PDV (ex.: `https://seu-pdv.vercel.app`)
+   - `PDV_API_TOKEN` = um token novo, só de leitura, próprio do CRM — **não reutilize o `SYNC_TOKEN`** do PDV
+3. Redeploy. A tela OS passa a listar as ordens automaticamente, agrupadas por status.
+
+Até isso estar configurado, a tela mostra um aviso explicando o que falta.
 
 ## Formato da planilha de importação
 
