@@ -71,17 +71,26 @@ export default function Home() {
   const [modal, setModal] = useState(null); // {tipo, lead}
   const [painelAberto, setPainelAberto] = useState(true);
   const [carregando, setCarregando] = useState(true);
+  const [erroConexao, setErroConexao] = useState(null);
   const fileRef = useRef(null);
   const [importOpts, setImportOpts] = useState({ cadencia: true });
   const dragId = useRef(null);
 
   async function carregar() {
-    const [l1, l2] = await Promise.all([
-      fetch("/api/leads").then((r) => r.json()),
-      fetch("/api/lists").then((r) => r.json()),
-    ]);
-    setLeads(Array.isArray(l1) ? l1 : []);
-    setLists(Array.isArray(l2) ? l2 : []);
+    try {
+      const [r1, r2] = await Promise.all([fetch("/api/leads"), fetch("/api/lists")]);
+      const l1 = await r1.json().catch(() => null);
+      const l2 = await r2.json().catch(() => null);
+      if (!r1.ok || !r2.ok || !Array.isArray(l1) || !Array.isArray(l2)) {
+        setErroConexao((l1 && l1.error) || (l2 && l2.error) || `Erro ${r1.status}/${r2.status} na API — verifique a MONGODB_URI no Vercel.`);
+      } else {
+        setLeads(l1);
+        setLists(l2);
+        setErroConexao(null);
+      }
+    } catch (e) {
+      setErroConexao(String(e.message || e));
+    }
     setCarregando(false);
   }
   useEffect(() => { carregar(); }, []);
@@ -235,6 +244,20 @@ export default function Home() {
 
   // ---------- render ----------
   if (carregando) return <div style={{ padding: 40, textAlign: "center" }}>Carregando CRM…</div>;
+  if (erroConexao)
+    return (
+      <div style={{ padding: 40, maxWidth: 640, margin: "0 auto" }}>
+        <h2 style={{ color: "#991b1b", marginBottom: 12 }}>⚠️ Não consegui conectar ao banco</h2>
+        <div className="aviso" style={{ wordBreak: "break-word" }}>{erroConexao}</div>
+        <ol style={{ fontSize: 14, lineHeight: 1.9, paddingLeft: 20, marginTop: 10 }}>
+          <li>No Vercel: Settings → Environment Variables → confira <b>MONGODB_URI</b> e <b>MONGODB_DB=info_crm</b></li>
+          <li>No Atlas: Network Access precisa ter <b>0.0.0.0/0</b> liberado</li>
+          <li>No Atlas: usuário <b>crm_user</b> com role readWrite no banco <b>info_crm</b></li>
+          <li>Depois de mudar variável de ambiente, faça <b>Redeploy</b> no Vercel</li>
+        </ol>
+        <button className="btn2 primario" onClick={() => { setCarregando(true); carregar(); }}>🔄 Tentar novamente</button>
+      </div>
+    );
 
   return (
     <div>
