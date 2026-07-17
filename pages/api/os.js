@@ -1,5 +1,6 @@
 // Proxy somente-leitura para as Ordens de Serviço do PDV.
-// Ainda não ativado: precisa de PDV_API_URL e PDV_API_TOKEN nas envs do Vercel.
+// Chama o endpoint real do PDV: GET /api/crm-sync?since=<epoch ms>
+// Precisa de PDV_API_URL e PDV_API_TOKEN nas envs do Vercel do CRM.
 // O CRM nunca acessa o banco infopdv diretamente — só via HTTP, como definido nas diretrizes.
 export default async function handler(req, res) {
   const { PDV_API_URL, PDV_API_TOKEN } = process.env;
@@ -10,13 +11,15 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const r = await fetch(`${PDV_API_URL.replace(/\/$/, "")}/api/sync?collection=serviceorders`, {
+    // sempre busca tudo (since=0) — volume de OS de uma assistência técnica é pequeno,
+    // não vale a complexidade de manter estado incremental no proxy por enquanto
+    const r = await fetch(`${PDV_API_URL.replace(/\/$/, "")}/api/crm-sync?since=0`, {
       headers: { Authorization: `Bearer ${PDV_API_TOKEN}` },
     });
-    const j = await r.json();
-    if (!r.ok) return res.status(r.status).json({ configurado: true, error: j.error || "Erro ao consultar o PDV" });
-    // formato esperado do PDV: [{ id, updatedAt, deleted, data }]
-    const ordens = (Array.isArray(j) ? j : j.data || []).filter((x) => !x.deleted);
+    const j = await r.json().catch(() => null);
+    if (!r.ok) return res.status(r.status).json({ configurado: true, error: j?.error || `Erro ${r.status} ao consultar o PDV` });
+    // formato do PDV: [{ id, updatedAt, deleted, data }]
+    const ordens = (Array.isArray(j) ? j : []).filter((x) => !x.deleted);
     return res.json({ configurado: true, ordens });
   } catch (e) {
     return res.status(502).json({ configurado: true, error: "Não consegui conectar ao PDV: " + e.message });
