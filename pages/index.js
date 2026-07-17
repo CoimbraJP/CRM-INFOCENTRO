@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import Layout from "../components/Layout";
 import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, novaCadencia } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
@@ -15,6 +16,7 @@ function msgDoLembreteFactory(render) {
 export default function CrmPage() {
   const { templates, render } = useTemplates();
   const msgDoLembrete = msgDoLembreteFactory(render);
+  const router = useRouter();
 
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
@@ -45,6 +47,11 @@ export default function CrmPage() {
     setCarregando(false);
   }
   useEffect(() => { carregar(); }, []);
+
+  // chegou aqui vindo da tela OS com ?tel=... — já filtra pelo cliente
+  useEffect(() => {
+    if (router.isReady && router.query.tel) setBusca(String(router.query.tel));
+  }, [router.isReady, router.query.tel]);
 
   async function salvarLead(lead) {
     setLeads((ls) => ls.map((x) => (x._id === lead._id ? lead : x)));
