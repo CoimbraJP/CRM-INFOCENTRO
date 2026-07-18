@@ -5,18 +5,34 @@ import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { TAGS, waLink, normalizaFone, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
 
-// Tenta descobrir os campos mais comuns dentro de data.* sem travar se o formato do PDV for diferente.
-// Edite estas listas se souber o nome exato dos campos do seu PDV — quanto mais na frente, maior a prioridade.
+// Nomes reais confirmados no retorno do PDV (api/crm-sync): client, clientCPF, clientPhone,
+// clientBirthDate, clientAddress{}, device, deviceFull, devicePassword, defect, accessories,
+// status, date, readyDate, services[{id,description,price}], serviceValue, updatedAt.
+// As listas mantêm nomes alternativos como fallback caso o PDV mude no futuro.
 const CAMPOS = {
-  cliente: ["cliente", "clienteNome", "nomeCliente", "nome", "customer", "customerName", "cliente_nome", "client"],
-  cpf: ["cpf", "cpfCnpj", "cpf_cnpj", "documento", "doc"],
-  telefone: ["telefone", "celular", "whatsapp", "fone", "contato", "phone", "telefoneCliente", "clienteTelefone"],
-  equipamento: ["equipamento", "aparelho", "produto", "device", "modelo", "item", "tipo"],
-  defeito: ["defeito", "problema", "descricao", "reclamacao", "relato", "issue", "observacao", "obs"],
-  valor: ["valor", "valorTotal", "total", "preco", "price", "valor_total"],
-  servicos: ["servicos", "services", "itens", "pecas", "servicosRealizados"],
-  data: ["dataAbertura", "criadoEm", "createdAt", "data", "abertura", "dataEntrada"],
+  cliente: ["client", "cliente", "clienteNome", "nomeCliente", "nome", "customer", "customerName"],
+  cpf: ["clientCPF", "cpf", "cpfCnpj", "documento"],
+  telefone: ["clientPhone", "telefone", "celular", "whatsapp", "fone", "contato", "phone"],
+  nascimento: ["clientBirthDate", "nascimento", "aniversario"],
+  endereco: ["clientAddress", "endereco"],
+  equipamento: ["device", "equipamento", "aparelho", "produto", "modelo"],
+  equipamentoCompleto: ["deviceFull"],
+  senha: ["devicePassword", "senha"],
+  defeito: ["defect", "defeito", "problema", "descricao", "reclamacao", "relato"],
+  acessorios: ["accessories", "acessorios"],
+  valor: ["serviceValue", "valor", "valorTotal", "total", "preco"],
+  servicos: ["services", "servicos", "itens", "pecas"],
+  data: ["date", "dataAbertura", "criadoEm", "createdAt", "abertura"],
+  dataPronto: ["readyDate", "dataPronta", "previsao"],
   status: ["status", "situacao", "etapa"],
+};
+const CAMPOS_DATA = new Set(["data", "dataPronto"]);
+const ORDEM_CAMPOS = ["cliente", "telefone", "cpf", "nascimento", "endereco", "equipamento", "equipamentoCompleto", "defeito", "acessorios", "senha", "servicos", "valor", "status", "data", "dataPronto"];
+const LABELS_CAMPOS = {
+  cliente: "Cliente", telefone: "Telefone", cpf: "CPF", nascimento: "Nascimento", endereco: "Endereço",
+  equipamento: "Equipamento", equipamentoCompleto: "Equipamento (completo)", defeito: "Defeito relatado",
+  acessorios: "Acessórios", senha: "Senha do aparelho", servicos: "Serviços realizados", valor: "Valor",
+  status: "Status", data: "Abertura", dataPronto: "Previsão / pronto",
 };
 
 function campo(data, chave) {
@@ -24,8 +40,26 @@ function campo(data, chave) {
   for (const k of opcoes) {
     const v = data?.[k];
     if (v === undefined || v === null || v === "") continue;
-    if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? x.nome || x.descricao || JSON.stringify(x) : x)).join(", ");
-    if (typeof v === "object") return JSON.stringify(v);
+    if (Array.isArray(v)) {
+      return v.map((x) => {
+        if (typeof x !== "object" || x === null) return x;
+        const nome = x.description || x.descricao || x.nome || "";
+        const preco = x.price ?? x.valor;
+        return preco !== undefined ? `${nome} (${fmtValor(preco)})` : nome || JSON.stringify(x);
+      }).join(", ");
+    }
+    if (typeof v === "object") {
+      // endereço estruturado (clientAddress) — monta uma linha legível
+      if (v.street || v.city) {
+        return [
+          [v.street, v.number].filter(Boolean).join(", "),
+          v.neighborhood,
+          [v.city, v.state].filter(Boolean).join("/"),
+          v.cep,
+        ].filter(Boolean).join(" — ");
+      }
+      return JSON.stringify(v);
+    }
     return String(v);
   }
   return "";
@@ -38,12 +72,18 @@ function numeroValor(v) {
   const n = Number(String(v || "").replace(",", "."));
   return isNaN(n) ? 0 : n;
 }
+function fmtDataHora(v) {
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  const soData = /^\d{4}-\d{2}-\d{2}$/.test(String(v));
+  return d.toLocaleDateString("pt-BR") + (soData ? "" : " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+}
 const CORES_STATUS = {
-  aberta: "#3b82f6", "em aberto": "#3b82f6",
+  aberta: "#3b82f6", "em aberto": "#3b82f6", "em análise": "#3b82f6", "em analise": "#3b82f6",
   "em andamento": "#f59e0b", andamento: "#f59e0b",
   "aguardando peca": "#a855f7", "aguardando peça": "#a855f7", orcamento: "#a855f7", "orçamento": "#a855f7",
   pronta: "#22c55e", concluida: "#22c55e", "concluída": "#22c55e",
-  entregue: "#0d9488", finalizada: "#0d9488",
+  entregue: "#0d9488", finalizada: "#0d9488", encerrado: "#0d9488", encerrada: "#0d9488",
   cancelada: "#dc2626",
 };
 function corStatus(status) {
@@ -233,13 +273,13 @@ export default function OsPage() {
         <Modal fechar={() => setOsDetalhe(null)}>
           <h2><Ico n="wrench" /> OS #{osDetalhe.id}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-            {Object.keys(CAMPOS).map((chave) => {
+            {ORDEM_CAMPOS.map((chave) => {
               const v = campo(osDetalhe.data, chave);
               if (!v) return null;
               return (
                 <div key={chave} className="linha-item">
-                  <span className="data" style={{ minWidth: 90, textTransform: "capitalize" }}>{chave}</span>
-                  <span className="desc">{chave === "valor" ? fmtValor(v) : v}</span>
+                  <span className="data" style={{ minWidth: 130 }}>{LABELS_CAMPOS[chave] || chave}</span>
+                  <span className="desc">{chave === "valor" ? fmtValor(v) : CAMPOS_DATA.has(chave) ? fmtDataHora(v) : v}</span>
                 </div>
               );
             })}
