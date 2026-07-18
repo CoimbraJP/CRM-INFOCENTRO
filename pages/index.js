@@ -211,8 +211,18 @@ export default function CrmPage() {
     });
   }, [leads, busca]);
 
+  const acoesTopbar = !carregando && !erroConexao && (
+    <>
+      <input type="text" placeholder="Buscar nome, telefone, serviço ou etiqueta…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+      <button className="btn" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> <span className="btn-rotulo">Cliente</span></button>
+      <button className="btn" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> <span className="btn-rotulo">Importar</span></button>
+      <button className="btn destaque" onClick={exportar}><Ico n="download" size={15} /> <span className="btn-rotulo">Backup</span></button>
+      <button className="btn perigo" onClick={limparTudo} title="Apaga todos os clientes do CRM (não afeta a página OS)"><Ico n="trash" size={15} /> <span className="btn-rotulo">Limpar dados</span></button>
+    </>
+  );
+
   return (
-    <Layout titulo="CRM">
+    <Layout titulo="CRM" acoes={acoesTopbar}>
       {carregando && <div style={{ padding: 40, textAlign: "center" }}>Carregando CRM…</div>}
       {!carregando && erroConexao && (
         <div style={{ padding: 40, maxWidth: 640, margin: "0 auto" }}>
@@ -233,15 +243,6 @@ export default function CrmPage() {
       )}
       {!carregando && !erroConexao && (
         <>
-          <div className="toolbar">
-            <input type="text" placeholder="Buscar nome, telefone, serviço ou etiqueta…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-            <span className="espaco" />
-            <button className="btn2" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> Cliente</button>
-            <button className="btn2" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> Importar</button>
-            <button className="btn2 primario" onClick={exportar}><Ico n="download" size={15} /> Backup</button>
-            <button className="btn2 perigo" onClick={limparTudo} title="Apaga todos os clientes do CRM (não afeta a página OS)"><Ico n="trash" size={15} /> Limpar dados</button>
-          </div>
-
           <div className="painel-hoje">
             <div className="ph-head" onClick={() => setPainelAberto(!painelAberto)}>
               <Ico n="inbox" /> Enviar hoje {pendencias.length > 0 && <span className="ph-badge">{pendencias.length}</span>}

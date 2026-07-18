@@ -3,7 +3,7 @@ import Head from "next/head";
 import Sidebar from "./Sidebar";
 import { Ico } from "../lib/icons";
 
-export default function Layout({ children, titulo }) {
+export default function Layout({ children, titulo, acoes }) {
   const [colapsada, setColapsada] = useState(false);
   const [temaEscuro, setTemaEscuro] = useState(false);
 
@@ -35,6 +35,7 @@ export default function Layout({ children, titulo }) {
         <div className="topbar">
           <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />
           <span className="espaco" />
+          {acoes && <div className="topbar-acoes">{acoes}</div>}
           <button className="btn-tema" onClick={alternarTema} title={temaEscuro ? "Mudar para tema claro" : "Mudar para tema escuro"} aria-label="Alternar tema">
             <Ico n={temaEscuro ? "sun" : "moon"} size={19} />
           </button>

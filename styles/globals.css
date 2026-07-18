@@ -80,6 +80,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 }
 .topbar .logo { height: 44px; width: auto; display: block; }
 .topbar .espaco { margin-right: auto; }
+.topbar-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .topbar input[type="text"] {
   padding: 9px 14px; border-radius: 10px; border: none; min-width: 250px;
   background: rgba(255, 255, 255, .14); color: var(--topbar-texto);
@@ -98,6 +99,8 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .btn:hover { background: rgba(255,255,255,.24); transform: translateY(-1px); }
 .btn.destaque { background: var(--accent); color: var(--accent-texto); }
 .btn.destaque:hover { background: var(--accent-forte); }
+.btn.perigo { background: rgba(220, 38, 38, .35); color: #fff; }
+.btn.perigo:hover { background: rgba(220, 38, 38, .55); }
 .btn-tema {
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 50%; border: none;
@@ -259,6 +262,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   .topbar { padding: 10px 12px; gap: 8px; }
   .topbar .logo { height: 34px; }
   .topbar input[type="text"] { min-width: 0; flex: 1 1 100%; order: 10; }
+  .topbar-acoes { flex: 1 1 100%; order: 10; justify-content: flex-start; }
   .btn { padding: 8px 11px; font-size: 12px; }
   .btn .btn-rotulo { display: none; }
   .painel-hoje { margin: 12px 12px 0; }
