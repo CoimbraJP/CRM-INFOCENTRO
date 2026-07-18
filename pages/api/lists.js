@@ -18,7 +18,26 @@ function defaultListsTags() {
   ];
 }
 
-const PLACEMENT_FIELD = { crm: "listId", tags: "tagListId" };
+function defaultListsOs() {
+  return [
+    { key: "todas", nome: "TODAS AS OS", ordem: 0, fixa: true, board: "os" },
+  ];
+}
+
+function seedPara(board) {
+  if (board === "crm") return DEFAULT_LISTS_CRM;
+  if (board === "tags") return defaultListsTags();
+  if (board === "os") return defaultListsOs();
+  // board novo/desconhecido — pelo menos uma coluna inicial, já com o board certo
+  return [{ key: "todas", nome: "TODAS", ordem: 0, fixa: true, board }];
+}
+
+// em qual collection/campo verificar se a lista está em uso antes de excluir
+const CHECAGEM_EXCLUSAO = {
+  crm: { collection: "leads", campo: "listId" },
+  tags: { collection: "leads", campo: "tagListId" },
+  os: { collection: "os_placement", campo: "listId" },
+};
 
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -33,12 +52,11 @@ export default async function handler(req, res) {
       let lists = await col.find(filtro).sort({ ordem: 1 }).toArray();
 
       if (lists.length === 0) {
-        const seed = board === "tags" ? defaultListsTags() : DEFAULT_LISTS_CRM;
+        const seed = seedPara(board);
         try {
           await col.insertMany(seed.map((l) => ({ ...l })), { ordered: false });
         } catch (e) {
-          // 11000 = chave duplicada — algum seed já existe (corrida entre duas abas, por ex.);
-          // não é erro fatal, só recarrega o que já está salvo
+          // 11000 = chave duplicada (corrida entre duas abas abrindo ao mesmo tempo) — não é fatal
           if (e.code !== 11000) throw e;
         }
         lists = await col.find(filtro).sort({ ordem: 1 }).toArray();
@@ -66,9 +84,9 @@ export default async function handler(req, res) {
     if (req.method === "DELETE") {
       const { _id, key } = req.query;
       if (!_id) return res.status(400).json({ error: "faltou _id" });
-      const campo = PLACEMENT_FIELD[board] || "listId";
-      const leads = await db.collection("leads").countDocuments({ [campo]: key });
-      if (leads > 0) return res.status(400).json({ error: "Mova os cards antes de excluir a lista" });
+      const checagem = CHECAGEM_EXCLUSAO[board] || CHECAGEM_EXCLUSAO.crm;
+      const emUso = await db.collection(checagem.collection).countDocuments({ [checagem.campo]: key });
+      if (emUso > 0) return res.status(400).json({ error: "Mova os cards antes de excluir a lista" });
       await col.deleteOne({ _id: new ObjectId(_id) });
       return res.status(200).json({ ok: true });
     }
