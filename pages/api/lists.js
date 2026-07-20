@@ -75,9 +75,13 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const { _id, nome } = req.body || {};
+      const { _id, nome, ordem } = req.body || {};
       if (!_id) return res.status(400).json({ error: "faltou _id" });
-      await col.updateOne({ _id: new ObjectId(_id) }, { $set: { nome } });
+      const set = {};
+      if (nome !== undefined) set.nome = nome;
+      if (ordem !== undefined) set.ordem = ordem;
+      if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
+      await col.updateOne({ _id: new ObjectId(_id) }, { $set: set });
       return res.status(200).json({ ok: true });
     }
 

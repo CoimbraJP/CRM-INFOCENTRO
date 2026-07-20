@@ -28,6 +28,7 @@ export default function CrmPage() {
   const fileRef = useRef(null);
   const [importOpts, setImportOpts] = useState({ cadencia: true });
   const dragId = useRef(null);
+  const dragListaRef = useRef(null);
 
   async function carregar() {
     try {
@@ -201,6 +202,30 @@ export default function CrmPage() {
     if (!r.ok) { const j = await r.json(); alert(j.error); return; }
     carregar();
   }
+  async function renomearLista(l) {
+    const novoNome = prompt("Novo nome da lista:", l.nome);
+    if (!novoNome || novoNome === l.nome) return;
+    setLists((ls) => ls.map((x) => (x._id === l._id ? { ...x, nome: novoNome } : x)));
+    await fetch("/api/lists", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ _id: l._id, nome: novoNome }) });
+  }
+  async function moverListaParaPosicao(e, listaAlvo) {
+    e.preventDefault(); e.stopPropagation();
+    const keyOrigem = dragListaRef.current;
+    dragListaRef.current = null;
+    if (!keyOrigem || keyOrigem === listaAlvo.key) return;
+    const origem = lists.find((l) => l.key === keyOrigem);
+    if (!origem) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const antes = (e.clientX - rect.left) < rect.width / 2;
+    const semOrigem = lists.filter((l) => l.key !== keyOrigem).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const idxAlvo = semOrigem.findIndex((l) => l.key === listaAlvo.key);
+    const viz1 = antes ? semOrigem[idxAlvo - 1] : semOrigem[idxAlvo];
+    const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
+    const o1 = viz1?.ordem ?? null, o2 = viz2?.ordem ?? null;
+    const novaOrdem = o1 == null && o2 == null ? Date.now() : o1 == null ? o2 - 1 : o2 == null ? o1 + 1 : (o1 + o2) / 2;
+    setLists((ls) => ls.map((l) => (l.key === keyOrigem ? { ...l, ordem: novaOrdem } : l)).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)));
+    await fetch("/api/lists", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ _id: origem._id, ordem: novaOrdem }) });
+  }
 
   const leadsFiltrados = useMemo(() => {
     const q = busca.toLowerCase().trim();
@@ -294,10 +319,15 @@ export default function CrmPage() {
                     const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => c.ordem ?? 0)) : 0;
                     if (lead.listId !== lista.key || semOrigem.length) salvarLead({ ...lead, listId: lista.key, ordem: maxOrdem + 1 });
                   }}>
-                  <div className="lista-head">
+                  <div className="lista-head" draggable
+                    onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => moverListaParaPosicao(e, lista)}>
+                    <Ico n="gripVertical" size={14} className="arrasta-lista" />
                     <span className="titulo">{lista.nome}</span>
                     <span className="qtd">{cards.length}</span>
                     <span className="soma">{soma > 0 ? fmtDinheiro(soma) : ""}</span>
+                    <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
                     {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                   </div>
                   {cards.map((lead) => (

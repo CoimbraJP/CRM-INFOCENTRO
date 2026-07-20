@@ -117,6 +117,7 @@ export default function OsPage() {
   const [modal, setModal] = useState(null); // modal do mini-CRM da OS (obs/agenda/compras/tags)
   const [menuOrdenar, setMenuOrdenar] = useState(false);
   const dragId = useRef(null);
+  const dragListaRef = useRef(null);
 
   function carregarTudo() {
     fetch("/api/os")
@@ -201,14 +202,39 @@ export default function OsPage() {
     if (!r.ok) { const j = await r.json(); alert(j.error); return; }
     carregarTudo();
   }
+  async function renomearLista(l) {
+    const novoNome = prompt("Novo nome da lista:", l.nome);
+    if (!novoNome || novoNome === l.nome) return;
+    setLists((ls) => ls.map((x) => (x._id === l._id ? { ...x, nome: novoNome } : x)));
+    await fetch("/api/lists", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ _id: l._id, nome: novoNome }) });
+  }
+  async function moverListaParaPosicao(e, listaAlvo) {
+    e.preventDefault(); e.stopPropagation();
+    const keyOrigem = dragListaRef.current;
+    dragListaRef.current = null;
+    if (!keyOrigem || keyOrigem === listaAlvo.key) return;
+    const origem = lists.find((l) => l.key === keyOrigem);
+    if (!origem) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const antes = (e.clientX - rect.left) < rect.width / 2;
+    const semOrigem = lists.filter((l) => l.key !== keyOrigem).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const idxAlvo = semOrigem.findIndex((l) => l.key === listaAlvo.key);
+    const viz1 = antes ? semOrigem[idxAlvo - 1] : semOrigem[idxAlvo];
+    const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
+    const o1 = viz1?.ordem ?? null, o2 = viz2?.ordem ?? null;
+    const novaOrdem = o1 == null && o2 == null ? Date.now() : o1 == null ? o2 - 1 : o2 == null ? o1 + 1 : (o1 + o2) / 2;
+    setLists((ls) => ls.map((l) => (l.key === keyOrigem ? { ...l, ordem: novaOrdem } : l)).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)));
+    await fetch("/api/lists", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ _id: origem._id, ordem: novaOrdem }) });
+  }
 
   // organiza a ordem DENTRO de cada lista (nome / nº da O.S / data de abertura) — nunca move item de lista
-  async function organizarPor(criterio) {
+  async function organizarPor(criterio, direcao) {
     setMenuOrdenar(false);
+    const mult = direcao === "desc" ? -1 : 1;
     const comparadores = {
-      nome: (a, b) => campo(a.data, "cliente").localeCompare(campo(b.data, "cliente"), "pt-BR", { sensitivity: "base" }),
-      os: (a, b) => (Number(a.id) - Number(b.id)) || String(a.id).localeCompare(String(b.id)),
-      data: (a, b) => new Date(campo(a.data, "data") || 0) - new Date(campo(b.data, "data") || 0),
+      nome: (a, b) => mult * campo(a.data, "cliente").localeCompare(campo(b.data, "cliente"), "pt-BR", { sensitivity: "base" }),
+      os: (a, b) => mult * ((Number(a.id) - Number(b.id)) || String(a.id).localeCompare(String(b.id))),
+      data: (a, b) => mult * (new Date(campo(a.data, "data") || 0) - new Date(campo(b.data, "data") || 0)),
     };
     const comparador = comparadores[criterio];
     const porLista = new Map();
@@ -252,9 +278,21 @@ export default function OsPage() {
           <>
             <div className="dropdown-fundo" onClick={() => setMenuOrdenar(false)} />
             <div className="dropdown-menu">
-              <button onClick={() => organizarPor("nome")}><Ico n="fileText" size={15} /> Por nome</button>
-              <button onClick={() => organizarPor("os")}><Ico n="wrench" size={15} /> Por nº da O.S</button>
-              <button onClick={() => organizarPor("data")}><Ico n="calendar" size={15} /> Por data de abertura</button>
+              <div className="dropdown-linha">
+                <span>Nome</span>
+                <button onClick={() => organizarPor("nome", "asc")} title="A → Z"><Ico n="arrowUp" size={14} /></button>
+                <button onClick={() => organizarPor("nome", "desc")} title="Z → A"><Ico n="arrowDown" size={14} /></button>
+              </div>
+              <div className="dropdown-linha">
+                <span>Nº da O.S</span>
+                <button onClick={() => organizarPor("os", "asc")} title="Crescente"><Ico n="arrowUp" size={14} /></button>
+                <button onClick={() => organizarPor("os", "desc")} title="Decrescente"><Ico n="arrowDown" size={14} /></button>
+              </div>
+              <div className="dropdown-linha">
+                <span>Data de abertura</span>
+                <button onClick={() => organizarPor("data", "asc")} title="Mais antiga primeiro"><Ico n="arrowUp" size={14} /></button>
+                <button onClick={() => organizarPor("data", "desc")} title="Mais recente primeiro"><Ico n="arrowDown" size={14} /></button>
+              </div>
             </div>
           </>
         )}
@@ -307,10 +345,15 @@ export default function OsPage() {
                   const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => ordemDe(c.id))) : 0;
                   moverOs(id, lista.key, maxOrdem + 1);
                 }}>
-                <div className="lista-head">
+                <div className="lista-head" draggable
+                  onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => moverListaParaPosicao(e, lista)}>
+                  <Ico n="gripVertical" size={14} className="arrasta-lista" />
                   <span className="titulo">{lista.nome}</span>
                   <span className="qtd">{cards.length}</span>
                   {soma > 0 && <span className="soma">{fmtValor(soma)}</span>}
+                  <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
                   {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                 </div>
 
