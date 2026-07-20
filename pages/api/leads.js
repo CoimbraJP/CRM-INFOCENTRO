@@ -21,6 +21,7 @@ export default async function handler(req, res) {
         servico: l.servico || "",
         nascimento: l.nascimento || "",
         listId: l.listId || "inbox",
+        ordem: l.ordem ?? Date.now(),
         tagListId: l.tagListId || "sem_etiqueta",
         tags: l.tags || [],
         observacoes: l.observacoes || [],

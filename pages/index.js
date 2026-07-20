@@ -278,7 +278,8 @@ export default function CrmPage() {
 
           <div className="board">
             {lists.map((lista) => {
-              const cards = leadsFiltrados.filter((l) => l.listId === lista.key);
+              const cards = leadsFiltrados.filter((l) => l.listId === lista.key)
+                .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
               const soma = cards.reduce((s, l) => s + (l.compras || []).reduce((a, c) => a + (Number(c.valor) || 0), 0), 0);
               return (
                 <div key={lista.key} className="lista"
@@ -288,7 +289,10 @@ export default function CrmPage() {
                     e.currentTarget.classList.remove("drag-over");
                     const id = dragId.current;
                     const lead = leads.find((x) => x._id === id);
-                    if (lead && lead.listId !== lista.key) salvarLead({ ...lead, listId: lista.key });
+                    if (!lead) return;
+                    const semOrigem = cards.filter((c) => c._id !== id);
+                    const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => c.ordem ?? 0)) : 0;
+                    if (lead.listId !== lista.key || semOrigem.length) salvarLead({ ...lead, listId: lista.key, ordem: maxOrdem + 1 });
                   }}>
                   <div className="lista-head">
                     <span className="titulo">{lista.nome}</span>
@@ -299,6 +303,23 @@ export default function CrmPage() {
                   {cards.map((lead) => (
                     <Card key={lead._id} lead={lead}
                       onDragStart={() => (dragId.current = lead._id)}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const idOrigem = dragId.current;
+                        if (!idOrigem || idOrigem === lead._id) return;
+                        const origem = leads.find((l) => l._id === idOrigem);
+                        if (!origem) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const antes = (e.clientY - rect.top) < rect.height / 2;
+                        const semOrigem = cards.filter((c) => c._id !== idOrigem);
+                        const idxAlvo = semOrigem.findIndex((c) => c._id === lead._id);
+                        const viz1 = antes ? semOrigem[idxAlvo - 1] : semOrigem[idxAlvo];
+                        const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
+                        const o1 = viz1?.ordem ?? null, o2 = viz2?.ordem ?? null;
+                        const novaOrdem = o1 == null && o2 == null ? Date.now() : o1 == null ? o2 - 1 : o2 == null ? o1 + 1 : (o1 + o2) / 2;
+                        salvarLead({ ...origem, listId: lista.key, ordem: novaOrdem });
+                      }}
                       abrir={(tipo) => setModal({ tipo, lead })}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
                   ))}

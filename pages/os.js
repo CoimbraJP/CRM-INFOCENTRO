@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import Layout from "../components/Layout";
-import { Modal, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
+import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { TAGS, waLink, normalizaFone, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
+import { waLink, normalizaFone, primeiroNome } from "../lib/crmHelpers";
 
 // Nomes reais confirmados no retorno do PDV (api/crm-sync): client, clientCPF, clientPhone,
 // clientBirthDate, clientAddress{}, device, deviceFull, devicePassword, defect, accessories,
@@ -94,6 +95,13 @@ function corStatus(status) {
   for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
   return `hsl(${Math.abs(hash) % 360}, 55%, 42%)`;
 }
+// posição entre dois vizinhos ordenados (indexação fracionada — evita reescrever a coluna inteira)
+function ordemEntre(a, b) {
+  if (a == null && b == null) return Date.now();
+  if (a == null) return b - 1;
+  if (b == null) return a + 1;
+  return (a + b) / 2;
+}
 
 export default function OsPage() {
   const { templates, render } = useTemplates();
@@ -101,11 +109,12 @@ export default function OsPage() {
 
   const [estado, setEstado] = useState({ carregando: true, configurado: false, erro: null, ordens: [] });
   const [lists, setLists] = useState([]);
-  const [placement, setPlacement] = useState(new Map()); // osId -> listKey
-  const [leads, setLeads] = useState([]);
+  const [placement, setPlacement] = useState(new Map()); // osId -> { listId, ordem }
+  const [osLeads, setOsLeads] = useState(new Map()); // osId -> { tags, observacoes, compras, lembretes } — mini-CRM próprio da OS
+  const [leads, setLeads] = useState([]); // CRM geral, só pra saber quem já foi promovido
   const [busca, setBusca] = useState("");
-  const [osDetalhe, setOsDetalhe] = useState(null); // OS bruta (equipamento/defeito/valor/status)
-  const [modal, setModal] = useState(null); // modal de cliente CRM (obs/agenda/compras/tags/editar)
+  const [osDetalhe, setOsDetalhe] = useState(null); // OS bruta (equipamento/defeito/valor/status/brutos)
+  const [modal, setModal] = useState(null); // modal do mini-CRM da OS (obs/agenda/compras/tags)
   const dragId = useRef(null);
 
   function carregarTudo() {
@@ -120,7 +129,10 @@ export default function OsPage() {
 
     fetch("/api/lists?board=os").then((r) => r.json()).then((j) => setLists(Array.isArray(j) ? j : [])).catch(() => {});
     fetch("/api/os-placement").then((r) => r.json()).then((j) => {
-      if (Array.isArray(j)) setPlacement(new Map(j.map((p) => [p.osId, p.listId])));
+      if (Array.isArray(j)) setPlacement(new Map(j.map((p) => [p.osId, { listId: p.listId, ordem: p.ordem }])));
+    }).catch(() => {});
+    fetch("/api/os-leads").then((r) => r.json()).then((j) => {
+      if (Array.isArray(j)) setOsLeads(new Map(j.map((d) => [d.osId, d])));
     }).catch(() => {});
     fetch("/api/leads").then((r) => r.json()).then((j) => setLeads(Array.isArray(j) ? j : [])).catch(() => {});
   }
@@ -132,16 +144,6 @@ export default function OsPage() {
     return m;
   }, [leads]);
 
-  async function salvarLead(lead) {
-    setLeads((ls) => ls.map((x) => (x._id === lead._id ? lead : x)));
-    await fetch("/api/leads", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
-  }
-  async function excluirLead(id) {
-    if (!confirm("Excluir este cliente definitivamente do CRM?")) return;
-    setLeads((ls) => ls.filter((x) => x._id !== id));
-    setModal(null);
-    await fetch("/api/leads?_id=" + id, { method: "DELETE" });
-  }
   async function adicionarAoCrm(o) {
     const nome = campo(o.data, "cliente");
     const telefone = campo(o.data, "telefone");
@@ -151,13 +153,40 @@ export default function OsPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nome, telefone, servico, listId: "inbox", tagListId: "sem_etiqueta", tags: [] }),
     });
-    if (r.ok) { alert("Cliente adicionado ao CRM!"); carregarTudo(); }
+    if (r.ok) { alert("Cliente adicionado ao CRM geral!"); carregarTudo(); }
     else alert("Não consegui adicionar — tenta de novo.");
   }
 
-  async function moverOs(osId, listId) {
-    setPlacement((m) => new Map(m).set(osId, listId));
-    await fetch("/api/os-placement", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ osId, listId }) });
+  // ---------- mini-CRM próprio da OS (observações/agenda/compras/etiquetas) ----------
+  function pseudoLeadDe(osId, o) {
+    const extra = osLeads.get(String(osId)) || {};
+    return {
+      nome: o ? campo(o.data, "cliente") : "",
+      telefone: o ? campo(o.data, "telefone") : "",
+      tags: extra.tags || [],
+      observacoes: extra.observacoes || [],
+      compras: extra.compras || [],
+      lembretes: extra.lembretes || [],
+    };
+  }
+  async function salvarOsLead(osId, lead) {
+    const dados = { tags: lead.tags || [], observacoes: lead.observacoes || [], compras: lead.compras || [], lembretes: lead.lembretes || [] };
+    setOsLeads((m) => new Map(m).set(String(osId), { osId: String(osId), ...dados }));
+    await fetch("/api/os-leads", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ osId, ...dados }) });
+  }
+
+  // ---------- organização em listas + ordem dentro da coluna ----------
+  async function moverOs(osId, listId, ordem) {
+    setPlacement((m) => {
+      const novo = new Map(m);
+      const atual = novo.get(String(osId)) || {};
+      novo.set(String(osId), { listId: listId ?? atual.listId, ordem: ordem ?? atual.ordem });
+      return novo;
+    });
+    const body = { osId };
+    if (listId !== undefined) body.listId = listId;
+    if (ordem !== undefined) body.ordem = ordem;
+    await fetch("/api/os-placement", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
   async function novaLista() {
     const nome = prompt("Nome da nova lista:");
@@ -182,7 +211,13 @@ export default function OsPage() {
   }, [estado.ordens, busca]);
 
   const primeiraLista = lists[0]?.key || "todas";
-  function listaDe(osId) { return placement.get(String(osId)) || primeiraLista; }
+  function listaDe(osId) { return placement.get(String(osId))?.listId || primeiraLista; }
+  function ordemDe(osId) {
+    const p = placement.get(String(osId));
+    if (p && p.ordem != null) return p.ordem;
+    const n = Number(osId);
+    return isNaN(n) ? 0 : n;
+  }
 
   const acoesTopbar = !estado.carregando && estado.configurado && !estado.erro && (
     <input type="text" placeholder="Buscar cliente, telefone, CPF ou equipamento…" value={busca} onChange={(e) => setBusca(e.target.value)} />
@@ -192,7 +227,7 @@ export default function OsPage() {
     <Layout titulo="OS" acoes={acoesTopbar}>
       <div className="pagina" style={{ paddingBottom: 0 }}>
         <div className="pagina-titulo"><Ico n="wrench" size={20} /> Ordens de Serviço</div>
-        <div className="pagina-sub">Card idêntico ao do CRM quando o cliente já está cadastrado — clique no nome pra abrir observações, agenda, compras e etiquetas. Listas abaixo são só sua organização, o PDV nunca é alterado.</div>
+        <div className="pagina-sub">Cada OS já é um mini-CRM próprio (observações, agenda, compras, etiquetas) — use o ícone "+" no card pra também adicionar esse cliente ao CRM geral, se quiser. Listas abaixo são só sua organização, o PDV nunca é alterado.</div>
       </div>
 
       {estado.carregando && <div className="pagina">Carregando…</div>}
@@ -216,55 +251,71 @@ export default function OsPage() {
       )}
 
       {!estado.carregando && estado.configurado && !estado.erro && (
-        <>
-          <div className="board">
-            {lists.map((lista) => {
-              const cards = ordensFiltradas.filter((o) => listaDe(o.id) === lista.key);
-              const soma = cards.reduce((s, o) => s + numeroValor(campo(o.data, "valor")), 0);
-              return (
-                <div key={lista.key} className="lista"
-                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }}
-                  onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
-                  onDrop={(e) => { e.currentTarget.classList.remove("drag-over"); if (dragId.current) moverOs(dragId.current, lista.key); }}>
-                  <div className="lista-head">
-                    <span className="titulo">{lista.nome}</span>
-                    <span className="qtd">{cards.length}</span>
-                    {soma > 0 && <span className="soma">{fmtValor(soma)}</span>}
-                    {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
-                  </div>
-
-                  {cards.map((o) => {
-                    const telefone = campo(o.data, "telefone");
-                    const lead = telefone ? leadsPorTelefone.get(normalizaFone(telefone)) : null;
-                    return lead ? (
-                      <CardCliente key={o.id} lead={lead} status={campo(o.data, "status")}
-                        onDragStart={() => (dragId.current = String(o.id))}
-                        abrir={(tipo) => setModal({ tipo, lead })}
-                        abrirOs={() => setOsDetalhe(o)}
-                        zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
-                    ) : (
-                      <CardPendente key={o.id} o={o}
-                        onDragStart={() => (dragId.current = String(o.id))}
-                        abrirOs={() => setOsDetalhe(o)}
-                        adicionar={() => adicionarAoCrm(o)} />
-                    );
-                  })}
+        <div className="board">
+          {lists.map((lista) => {
+            const cards = ordensFiltradas.filter((o) => listaDe(o.id) === lista.key)
+              .sort((a, b) => ordemDe(a.id) - ordemDe(b.id));
+            const soma = cards.reduce((s, o) => s + numeroValor(campo(o.data, "valor")), 0);
+            return (
+              <div key={lista.key} className="lista"
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }}
+                onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
+                onDrop={(e) => {
+                  e.currentTarget.classList.remove("drag-over");
+                  const id = dragId.current;
+                  if (!id) return;
+                  const semOrigem = cards.filter((c) => String(c.id) !== String(id));
+                  const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => ordemDe(c.id))) : 0;
+                  moverOs(id, lista.key, maxOrdem + 1);
+                }}>
+                <div className="lista-head">
+                  <span className="titulo">{lista.nome}</span>
+                  <span className="qtd">{cards.length}</span>
+                  {soma > 0 && <span className="soma">{fmtValor(soma)}</span>}
+                  {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                 </div>
-              );
-            })}
-            <button className="add-lista" onClick={novaLista}><Ico n="plus" size={16} /> Nova lista</button>
-          </div>
-        </>
+
+                {cards.map((o) => {
+                  const telefone = campo(o.data, "telefone");
+                  const leadCRM = telefone ? leadsPorTelefone.get(normalizaFone(telefone)) : null;
+                  return (
+                    <CardOs key={o.id} o={o} osLead={pseudoLeadDe(o.id, o)}
+                      leadCRM={leadCRM}
+                      onDragStart={() => (dragId.current = String(o.id))}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const idOrigem = dragId.current;
+                        if (!idOrigem || String(idOrigem) === String(o.id)) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const antes = (e.clientY - rect.top) < rect.height / 2;
+                        const semOrigem = cards.filter((c) => String(c.id) !== String(idOrigem));
+                        const idxAlvo = semOrigem.findIndex((c) => String(c.id) === String(o.id));
+                        const viz1 = antes ? semOrigem[idxAlvo - 1] : semOrigem[idxAlvo];
+                        const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
+                        const novaOrdem = ordemEntre(viz1 ? ordemDe(viz1.id) : null, viz2 ? ordemDe(viz2.id) : null);
+                        moverOs(idOrigem, lista.key, novaOrdem);
+                      }}
+                      abrir={(tipo) => setModal({ tipo, osId: o.id, o })}
+                      abrirOs={() => setOsDetalhe(o)}
+                      promover={() => adicionarAoCrm(o)}
+                      zapDireto={() => window.open(waLink(telefone), "_blank")} />
+                  );
+                })}
+              </div>
+            );
+          })}
+          <button className="add-lista" onClick={novaLista}><Ico n="plus" size={16} /> Nova lista</button>
+        </div>
       )}
 
-      {/* modais do cliente — mesmos do CRM */}
+      {/* mini-CRM da OS — observações/agenda/compras/etiquetas, independente do CRM geral */}
       {modal && (
         <Modal fechar={() => setModal(null)}>
-          {modal.tipo === "editar" && <ModalEditar lead={leads.find((l) => l._id === modal.lead._id)} onSalvar={(dados) => { salvarLead({ ...modal.lead, ...dados }); setModal(null); }} onExcluir={() => excluirLead(modal.lead._id)} />}
-          {modal.tipo === "obs" && <ModalObs lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} />}
-          {modal.tipo === "agenda" && <ModalAgenda lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} enviar={(lead, texto) => window.open(waLink(lead.telefone, texto), "_blank")} templates={templates} msgDoLembrete={msgDoLembrete} />}
-          {modal.tipo === "compras" && <ModalCompras lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} />}
-          {modal.tipo === "tags" && <ModalTags lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} />}
+          {modal.tipo === "obs" && <ModalObs lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} />}
+          {modal.tipo === "agenda" && <ModalAgenda lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} enviar={(lead, texto) => window.open(waLink(lead.telefone, texto), "_blank")} templates={templates} msgDoLembrete={msgDoLembrete} />}
+          {modal.tipo === "compras" && <ModalCompras lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} />}
+          {modal.tipo === "tags" && <ModalTags lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} />}
         </Modal>
       )}
 
@@ -294,26 +345,30 @@ export default function OsPage() {
   );
 }
 
-// ---------- card idêntico ao do CRM (cliente já cadastrado) + 1 ícone extra pra ver a OS ----------
-function CardCliente({ lead, status, abrir, abrirOs, zapDireto, onDragStart }) {
-  const pendentes = (lead.lembretes || []).filter((l) => !l.enviado).length;
-  const totalCompras = (lead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
+// ---------- card da OS: seu próprio mini-CRM (obs/agenda/whatsapp/compras/etiquetas), no mesmo padrão do CRM geral ----------
+function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDragStart, onDragOver, onDrop }) {
+  const cliente = campo(o.data, "cliente") || "sem nome";
+  const telefone = campo(o.data, "telefone");
+  const equipamento = campo(o.data, "equipamento");
+  const defeito = campo(o.data, "defeito");
+  const servicos = campo(o.data, "servicos");
+  const status = campo(o.data, "status");
+  const valor = campo(o.data, "valor");
+  const pendentes = (osLead.lembretes || []).filter((l) => !l.enviado).length;
+  const totalCompras = (osLead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
   return (
-    <div className="card" draggable onDragStart={onDragStart}>
-      <div className="nome" style={{ cursor: "pointer" }} onClick={() => abrir("editar")}>
-        {lead.nome || "— sem nome —"} {ehAniversarioHoje(lead) && <Ico n="cake" size={15} />}
-      </div>
-      <div className="servico">{lead.servico} · {lead.telefone}</div>
+    <div className="card" draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+      <div className="nome" style={{ cursor: "pointer" }} onClick={abrirOs}>{o.id} - {cliente}</div>
+      {equipamento && <div className="servico">{equipamento}</div>}
+      {defeito && <div className="servico">{defeito}</div>}
+      {servicos && <div className="servico">{servicos}</div>}
       <div className="tags">
         {status && <span className="tag-chip" style={{ background: corStatus(status) }}>{status}</span>}
-        {(lead.tags || []).map((t) => {
-          const tag = TAGS.find((x) => x.id === t);
-          return tag ? <span key={t} className="tag-chip" style={{ background: tag.cor }}>{tag.nome}</span> : null;
-        })}
+        {valor ? <span className="tag-chip" style={{ background: "var(--accent-forte)" }}>{fmtValor(valor)}</span> : null}
       </div>
       <div className="icones">
         <button className="icone-btn" title="Observações" onClick={() => abrir("obs")}>
-          <Ico n="fileText" />{(lead.observacoes || []).length > 0 && <span className="mini-badge">{lead.observacoes.length}</span>}
+          <Ico n="fileText" />{(osLead.observacoes || []).length > 0 && <span className="mini-badge">{osLead.observacoes.length}</span>}
         </button>
         <button className="icone-btn" title="Agenda de mensagens" onClick={() => abrir("agenda")}>
           <Ico n="calendar" />{pendentes > 0 && <span className="mini-badge alerta">{pendentes}</span>}
@@ -323,33 +378,11 @@ function CardCliente({ lead, status, abrir, abrirOs, zapDireto, onDragStart }) {
           <Ico n="dollar" />{totalCompras > 0 && <span className="mini-badge">{Math.round(totalCompras)}</span>}
         </button>
         <button className="icone-btn" title="Etiquetas" onClick={() => abrir("tags")}><Ico n="tag" /></button>
-        <button className="icone-btn" title="Ver dados da OS" onClick={abrirOs}><Ico n="wrench" /></button>
-      </div>
-    </div>
-  );
-}
-
-// ---------- card de OS cujo cliente ainda não está no CRM ----------
-function CardPendente({ o, abrirOs, adicionar, onDragStart }) {
-  const cliente = campo(o.data, "cliente") || "OS #" + o.id;
-  const telefone = campo(o.data, "telefone");
-  const equipamento = campo(o.data, "equipamento");
-  const defeito = campo(o.data, "defeito");
-  const status = campo(o.data, "status");
-  const valor = campo(o.data, "valor");
-  return (
-    <div className="card" draggable onDragStart={onDragStart} style={{ opacity: .92 }}>
-      <div className="nome" style={{ cursor: "pointer" }} onClick={abrirOs}>{cliente}</div>
-      <div className="servico">{[equipamento, defeito].filter(Boolean).join(" · ") || "sem detalhes de equipamento"}</div>
-      <div className="tags">
-        {status && <span className="tag-chip" style={{ background: corStatus(status) }}>{status}</span>}
-        {valor ? <span className="tag-chip" style={{ background: "var(--accent-forte)" }}>{fmtValor(valor)}</span> : null}
-      </div>
-      <div className="icones">
-        <span style={{ fontSize: 12, color: "var(--cinza)", flex: 1 }}>{telefone || "sem telefone"}</span>
-        {telefone && <button className="icone-btn zap-btn" title="WhatsApp" onClick={() => window.open(waLink(telefone), "_blank")}><IcoZap /></button>}
-        <button className="icone-btn" title="Ver OS" onClick={abrirOs}><Ico n="wrench" /></button>
-        <button className="icone-btn" title="Adicionar ao CRM" onClick={adicionar}><Ico n="plus" /></button>
+        {leadCRM ? (
+          <Link href={`/?tel=${encodeURIComponent(telefone)}`} className="icone-btn" title="Já está no CRM geral — abrir lá"><Ico n="check" /></Link>
+        ) : (
+          <button className="icone-btn" title="Adicionar ao CRM geral" onClick={promover}><Ico n="plus" /></button>
+        )}
       </div>
     </div>
   );

@@ -13,11 +13,11 @@ export function novaCadencia(base) {
 }
 
 // ---------------- card ----------------
-export function Card({ lead, abrir, zapDireto, onDragStart }) {
+export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop }) {
   const pendentes = (lead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (lead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
   return (
-    <div className="card" draggable onDragStart={onDragStart}>
+    <div className="card" draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
       <div className="nome" style={{ cursor: "pointer" }} onClick={() => abrir("editar")}>
         {lead.nome || "— sem nome —"} {ehAniversarioHoje(lead) && <Ico n="cake" size={15} />}
       </div>

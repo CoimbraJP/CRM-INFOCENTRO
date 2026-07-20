@@ -15,13 +15,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const { osId, listId } = req.body || {};
-      if (!osId || !listId) return res.status(400).json({ error: "faltou osId ou listId" });
-      await col.updateOne(
-        { osId: String(osId) },
-        { $set: { osId: String(osId), listId, updatedAt: new Date().toISOString() } },
-        { upsert: true }
-      );
+      const { osId, listId, ordem } = req.body || {};
+      if (!osId) return res.status(400).json({ error: "faltou osId" });
+      const set = { osId: String(osId), updatedAt: new Date().toISOString() };
+      if (listId !== undefined) set.listId = listId;
+      if (ordem !== undefined) set.ordem = ordem;
+      await col.updateOne({ osId: String(osId) }, { $set: set }, { upsert: true });
       return res.status(200).json({ ok: true });
     }
 
