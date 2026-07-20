@@ -479,9 +479,9 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDra
   return (
     <div className={classe} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}>
       <div className="nome" style={{ cursor: "pointer" }} onClick={abrirOs}>{o.id} - {cliente}</div>
-      {equipamento && <div className="servico">{equipamento}</div>}
-      {defeito && <div className="servico">{defeito}</div>}
-      {servicos && <div className="servico">{servicos}</div>}
+      {equipamento && <div className="servico"><Ico n="laptop" className="servico-ico" /><span>{equipamento}</span></div>}
+      {defeito && <div className="servico"><Ico n="alerta" className="servico-ico" /><span>{defeito}</span></div>}
+      {servicos && <div className="servico"><Ico n="clipboardCheck" className="servico-ico" /><span>{servicos}</span></div>}
       <div className="tags">
         {status && <span className="tag-chip" style={{ background: corStatus(status) }}>{status}</span>}
         {valor ? <span className="tag-chip" style={{ background: "var(--accent-forte)" }}>{fmtValor(valor)}</span> : null}
