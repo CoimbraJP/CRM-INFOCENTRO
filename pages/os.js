@@ -115,6 +115,7 @@ export default function OsPage() {
   const [busca, setBusca] = useState("");
   const [osDetalhe, setOsDetalhe] = useState(null); // OS bruta (equipamento/defeito/valor/status/brutos)
   const [modal, setModal] = useState(null); // modal do mini-CRM da OS (obs/agenda/compras/tags)
+  const [menuOrdenar, setMenuOrdenar] = useState(false);
   const dragId = useRef(null);
 
   function carregarTudo() {
@@ -201,6 +202,29 @@ export default function OsPage() {
     carregarTudo();
   }
 
+  // organiza a ordem DENTRO de cada lista (nome / nº da O.S / data de abertura) — nunca move item de lista
+  async function organizarPor(criterio) {
+    setMenuOrdenar(false);
+    const comparadores = {
+      nome: (a, b) => campo(a.data, "cliente").localeCompare(campo(b.data, "cliente"), "pt-BR", { sensitivity: "base" }),
+      os: (a, b) => (Number(a.id) - Number(b.id)) || String(a.id).localeCompare(String(b.id)),
+      data: (a, b) => new Date(campo(a.data, "data") || 0) - new Date(campo(b.data, "data") || 0),
+    };
+    const comparador = comparadores[criterio];
+    const porLista = new Map();
+    for (const o of estado.ordens) {
+      const key = listaDe(o.id);
+      if (!porLista.has(key)) porLista.set(key, []);
+      porLista.get(key).push(o);
+    }
+    const tarefas = [];
+    for (const itens of porLista.values()) {
+      itens.sort(comparador);
+      itens.forEach((o, i) => tarefas.push(moverOs(o.id, undefined, i)));
+    }
+    await Promise.all(tarefas);
+  }
+
   const ordensFiltradas = useMemo(() => {
     const q = busca.toLowerCase().trim();
     if (!q) return estado.ordens;
@@ -220,7 +244,22 @@ export default function OsPage() {
   }
 
   const acoesTopbar = !estado.carregando && estado.configurado && !estado.erro && (
-    <input type="text" placeholder="Buscar cliente, telefone, CPF ou equipamento…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+    <>
+      <input type="text" placeholder="Buscar cliente, telefone, CPF ou equipamento…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+      <div className="dropdown-wrap">
+        <button className="btn" onClick={() => setMenuOrdenar((v) => !v)}><Ico n="sort" size={15} /> Organizar</button>
+        {menuOrdenar && (
+          <>
+            <div className="dropdown-fundo" onClick={() => setMenuOrdenar(false)} />
+            <div className="dropdown-menu">
+              <button onClick={() => organizarPor("nome")}><Ico n="fileText" size={15} /> Por nome</button>
+              <button onClick={() => organizarPor("os")}><Ico n="wrench" size={15} /> Por nº da O.S</button>
+              <button onClick={() => organizarPor("data")}><Ico n="calendar" size={15} /> Por data de abertura</button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 
   return (
