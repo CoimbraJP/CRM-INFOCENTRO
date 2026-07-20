@@ -5,9 +5,13 @@
 //
 // Blindado pra NUNCA estourar sem resposta: qualquer erro (URL inválida, timeout,
 // PDV fora do ar, resposta não-JSON) sempre volta como JSON com status e mensagem.
+import { exigirLogin } from "../../lib/auth";
+
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   try {
+    const sessao = exigirLogin(req, res);
+    if (!sessao) return;
     const PDV_API_URL = (process.env.PDV_API_URL || "").trim();
     const PDV_API_TOKEN = (process.env.PDV_API_TOKEN || "").trim();
 

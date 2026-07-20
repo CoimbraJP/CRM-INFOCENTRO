@@ -1,23 +1,28 @@
 import { getDb } from "../../lib/mongodb";
 import { TAGS as TAGS_PADRAO } from "../../lib/crmHelpers";
+import { exigirLogin, filtroTenant } from "../../lib/auth";
 
 // Etiquetas do sistema (nome/cor) — editáveis em Configurações e usadas em todo o CRM:
 // chips no card, seletor de etiquetas, busca/exportação e colunas do board Etiquetas.
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   try {
+    const sessao = exigirLogin(req, res);
+    if (!sessao) return;
+    const filtroT = filtroTenant(sessao);
+
     const db = await getDb();
     const col = db.collection("tags");
 
     if (req.method === "GET") {
-      let tags = await col.find({}).sort({ ordem: 1 }).toArray();
+      let tags = await col.find(filtroT).sort({ ordem: 1 }).toArray();
       if (tags.length === 0) {
         try {
-          await col.insertMany(TAGS_PADRAO.map((t, i) => ({ ...t, ordem: i })), { ordered: false });
+          await col.insertMany(TAGS_PADRAO.map((t, i) => ({ ...t, ordem: i, tenant: sessao.tenant })), { ordered: false });
         } catch (e) {
           if (e.code !== 11000) throw e;
         }
-        tags = await col.find({}).sort({ ordem: 1 }).toArray();
+        tags = await col.find(filtroT).sort({ ordem: 1 }).toArray();
       }
       return res.status(200).json(tags);
     }
@@ -26,17 +31,18 @@ export default async function handler(req, res) {
       const { nome, cor } = req.body || {};
       if (!nome) return res.status(400).json({ error: "faltou nome" });
       const id = "t" + Date.now();
-      const count = await col.countDocuments({});
-      const tag = { id, nome, cor: cor || "#0d9488", ordem: count };
+      const count = await col.countDocuments(filtroT);
+      const tag = { id, nome, cor: cor || "#0d9488", ordem: count, tenant: sessao.tenant };
       await col.insertOne(tag);
       // cria também a coluna correspondente no board de Etiquetas, se ele já existir
       const listsCol = db.collection("lists");
-      const existeBoard = await listsCol.countDocuments({ board: "tags" });
+      const filtroBoard = { $and: [{ board: "tags" }, filtroT] };
+      const existeBoard = await listsCol.countDocuments(filtroBoard);
       if (existeBoard > 0) {
-        const maxOrdem = await listsCol.find({ board: "tags" }).sort({ ordem: -1 }).limit(1).toArray();
+        const maxOrdem = await listsCol.find(filtroBoard).sort({ ordem: -1 }).limit(1).toArray();
         await listsCol.insertOne({
           key: "tag_" + id, nome: nome.toUpperCase(), ordem: (maxOrdem[0]?.ordem ?? 0) + 1,
-          fixa: false, board: "tags", cor: tag.cor, tagId: id,
+          fixa: false, board: "tags", cor: tag.cor, tagId: id, tenant: sessao.tenant,
         });
       }
       return res.status(200).json({ ok: true, id });
@@ -49,13 +55,13 @@ export default async function handler(req, res) {
       if (nome !== undefined) set.nome = nome;
       if (cor !== undefined) set.cor = cor;
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
-      await col.updateOne({ id }, { $set: set });
+      await col.updateOne({ $and: [{ id }, filtroT] }, { $set: set });
       // reflete o novo nome/cor na coluna correspondente do board de Etiquetas
       const setLista = {};
       if (nome !== undefined) setLista.nome = nome.toUpperCase();
       if (cor !== undefined) setLista.cor = cor;
       if (Object.keys(setLista).length > 0) {
-        await db.collection("lists").updateOne({ board: "tags", tagId: id }, { $set: setLista });
+        await db.collection("lists").updateOne({ $and: [{ board: "tags", tagId: id }, filtroT] }, { $set: setLista });
       }
       return res.status(200).json({ ok: true });
     }
@@ -63,7 +69,7 @@ export default async function handler(req, res) {
     if (req.method === "DELETE") {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: "faltou id" });
-      await col.deleteOne({ id });
+      await col.deleteOne({ $and: [{ id }, filtroT] });
       return res.status(200).json({ ok: true });
     }
 

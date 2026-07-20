@@ -399,6 +399,35 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .info-linha:last-child { border-bottom: none; }
 .info-linha b { color: var(--texto); }
 
+/* ---------- login / administração ---------- */
+.login-fundo {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--fundo); padding: 16px;
+}
+.login-card {
+  background: var(--card); border: 1px solid var(--borda); border-radius: 18px;
+  padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: var(--sombra-alta);
+  display: flex; flex-direction: column;
+}
+.login-logo { height: 52px; width: auto; align-self: center; margin-bottom: 18px; object-fit: contain; }
+.login-card h1 { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--accent-forte); }
+[data-theme="dark"] .login-card h1 { color: var(--accent); }
+.login-card label { font-size: 12px; font-weight: 800; color: var(--cinza); margin: 10px 0 4px; letter-spacing: .3px; }
+.login-card input[type="text"], .login-card input[type="password"] {
+  padding: 11px 13px; border: 1px solid var(--borda); border-radius: 10px;
+  background: var(--fundo); color: var(--texto); font-size: 14px;
+  transition: border-color .15s ease;
+}
+.login-card input:focus { border-color: var(--accent); outline: none; }
+.login-erro {
+  display: flex; align-items: center; gap: 6px; margin-top: 12px; padding: 9px 12px;
+  background: var(--vermelho-suave); color: var(--vermelho); border-radius: 10px; font-size: 13px; font-weight: 700;
+}
+.login-botao { margin-top: 16px; justify-content: center; padding: 11px; font-size: 14px; }
+.login-master { display: block; text-align: center; margin-top: 14px; font-size: 12.5px; color: var(--cinza); text-decoration: none; }
+.login-master:hover { color: var(--accent-forte); text-decoration: underline; }
+[data-theme="dark"] .login-master:hover { color: var(--accent); }
+
 .editor-estrategia-head {
   display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--borda);
   border-radius: 14px; padding: 16px 18px; margin-bottom: 20px; box-shadow: var(--sombra);

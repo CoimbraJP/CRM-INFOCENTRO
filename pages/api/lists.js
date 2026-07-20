@@ -1,6 +1,7 @@
 import { getDb } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { TAGS as TAGS_PADRAO } from "../../lib/crmHelpers";
+import { exigirLogin, filtroTenant } from "../../lib/auth";
 
 const DEFAULT_LISTS_CRM = [
   { key: "inbox", nome: "INBOX", ordem: 0, fixa: true, board: "crm" },
@@ -13,16 +14,16 @@ const DEFAULT_LISTS_CRM = [
 
 // as colunas do board de Etiquetas espelham as etiquetas cadastradas em Configurações
 // (collection "tags"), pra manter nome/cor sempre sincronizados em todo o sistema.
-async function defaultListsTags(db) {
+async function defaultListsTags(db, filtroT, tenant) {
   const tagsCol = db.collection("tags");
-  let tags = await tagsCol.find({}).sort({ ordem: 1 }).toArray();
+  let tags = await tagsCol.find(filtroT).sort({ ordem: 1 }).toArray();
   if (tags.length === 0) {
     try {
-      await tagsCol.insertMany(TAGS_PADRAO.map((t, i) => ({ ...t, ordem: i })), { ordered: false });
+      await tagsCol.insertMany(TAGS_PADRAO.map((t, i) => ({ ...t, ordem: i, tenant })), { ordered: false });
     } catch (e) {
       if (e.code !== 11000) throw e;
     }
-    tags = await tagsCol.find({}).sort({ ordem: 1 }).toArray();
+    tags = await tagsCol.find(filtroT).sort({ ordem: 1 }).toArray();
   }
   return [
     { key: "sem_etiqueta", nome: "SEM ETIQUETA", ordem: 0, fixa: true, board: "tags" },
@@ -36,9 +37,9 @@ function defaultListsOs() {
   ];
 }
 
-async function seedPara(board, db) {
+async function seedPara(board, db, filtroT, tenant) {
   if (board === "crm") return DEFAULT_LISTS_CRM;
-  if (board === "tags") return defaultListsTags(db);
+  if (board === "tags") return defaultListsTags(db, filtroT, tenant);
   if (board === "os") return defaultListsOs();
   // board novo/desconhecido — pelo menos uma coluna inicial, já com o board certo
   return [{ key: "todas", nome: "TODAS", ordem: 0, fixa: true, board }];
@@ -54,19 +55,24 @@ const CHECAGEM_EXCLUSAO = {
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   try {
+    const sessao = exigirLogin(req, res);
+    if (!sessao) return;
+    const filtroT = filtroTenant(sessao);
+
     const db = await getDb();
     const col = db.collection("lists");
     const board = (req.query.board || req.body?.board || "crm").toString();
+    // trata registros antigos (sem campo board) como pertencentes ao board "crm"
+    const filtroBoard = board === "crm" ? { $or: [{ board: "crm" }, { board: { $exists: false } }] } : { board };
+    const filtro = { $and: [filtroBoard, filtroT] };
 
     if (req.method === "GET") {
-      // trata registros antigos (sem campo board) como pertencentes ao board "crm"
-      const filtro = board === "crm" ? { $or: [{ board: "crm" }, { board: { $exists: false } }] } : { board };
       let lists = await col.find(filtro).sort({ ordem: 1 }).toArray();
 
       if (lists.length === 0) {
-        const seed = await seedPara(board, db);
+        const seed = await seedPara(board, db, filtroT, sessao.tenant);
         try {
-          await col.insertMany(seed.map((l) => ({ ...l })), { ordered: false });
+          await col.insertMany(seed.map((l) => ({ ...l, tenant: sessao.tenant })), { ordered: false });
         } catch (e) {
           // 11000 = chave duplicada (corrida entre duas abas abrindo ao mesmo tempo) — não é fatal
           if (e.code !== 11000) throw e;
@@ -79,10 +85,9 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       const { nome } = req.body || {};
       if (!nome) return res.status(400).json({ error: "faltou nome" });
-      const filtro = board === "crm" ? { $or: [{ board: "crm" }, { board: { $exists: false } }] } : { board };
       const count = await col.countDocuments(filtro);
       const key = "l_" + Date.now();
-      await col.insertOne({ key, nome, ordem: count, fixa: false, board });
+      await col.insertOne({ key, nome, ordem: count, fixa: false, board, tenant: sessao.tenant });
       return res.status(200).json({ ok: true, key });
     }
 
@@ -93,7 +98,7 @@ export default async function handler(req, res) {
       if (nome !== undefined) set.nome = nome;
       if (ordem !== undefined) set.ordem = ordem;
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
-      await col.updateOne({ _id: new ObjectId(_id) }, { $set: set });
+      await col.updateOne({ $and: [{ _id: new ObjectId(_id) }, filtroT] }, { $set: set });
       return res.status(200).json({ ok: true });
     }
 
@@ -101,9 +106,9 @@ export default async function handler(req, res) {
       const { _id, key } = req.query;
       if (!_id) return res.status(400).json({ error: "faltou _id" });
       const checagem = CHECAGEM_EXCLUSAO[board] || CHECAGEM_EXCLUSAO.crm;
-      const emUso = await db.collection(checagem.collection).countDocuments({ [checagem.campo]: key });
+      const emUso = await db.collection(checagem.collection).countDocuments({ $and: [{ [checagem.campo]: key }, filtroT] });
       if (emUso > 0) return res.status(400).json({ error: "Mova os cards antes de excluir a lista" });
-      await col.deleteOne({ _id: new ObjectId(_id) });
+      await col.deleteOne({ $and: [{ _id: new ObjectId(_id) }, filtroT] });
       return res.status(200).json({ ok: true });
     }
 
