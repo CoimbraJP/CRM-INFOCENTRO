@@ -7,6 +7,7 @@ import { Ico } from "../lib/icons";
 export default function Layout({ children, titulo, acoes }) {
   const [colapsada, setColapsada] = useState(false);
   const [temaEscuro, setTemaEscuro] = useState(false);
+  const [sessao, setSessao] = useState(null); // { usuario, tenant, admin }
   const router = useRouter();
 
   useEffect(() => {
@@ -18,9 +19,11 @@ export default function Layout({ children, titulo, acoes }) {
 
   // sessão expirada/deslogado -> manda pro login
   useEffect(() => {
-    fetch("/api/auth").then((r) => {
+    fetch("/api/auth").then((r) => r.json().then((j) => {
       if (r.status === 401) router.replace("/login");
-    }).catch(() => {});
+      else if (!j.tenant) router.replace(j.admin ? "/admin" : "/login"); // master ainda não escolheu uma conta
+      else setSessao(j);
+    })).catch(() => {});
   }, [router]);
 
   async function sair() {
@@ -44,7 +47,7 @@ export default function Layout({ children, titulo, acoes }) {
   return (
     <div className="app-shell">
       <Head><title>{titulo ? titulo + " — INFO Centro" : "CRM INFO Centro"}</title></Head>
-      <Sidebar colapsada={colapsada} alternar={alternarSidebar} />
+      <Sidebar colapsada={colapsada} alternar={alternarSidebar} sessao={sessao} />
       <div className="app-main">
         <div className="topbar">
           <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />

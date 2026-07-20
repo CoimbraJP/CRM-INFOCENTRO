@@ -42,6 +42,19 @@ export default function CrmPage() {
     setTimeout(() => setPousouCard((atual) => (atual === id ? null : atual)), 500);
   }
 
+  const [osExtra, setOsExtra] = useState({ ordens: [], docs: [] }); // pós-venda das OS no painel Enviar hoje
+  const [ultimoBackup, setUltimoBackup] = useState(null);
+
+  useEffect(() => {
+    try { setUltimoBackup(localStorage.getItem("ultimo-backup")); } catch (e) {}
+  }, []);
+  // aviso amarelo quando o backup manual está atrasado (> 7 dias)
+  const backupAtrasado = useMemo(() => {
+    if (leads.length === 0) return false;
+    if (!ultimoBackup) return true;
+    return (new Date(hoje()) - new Date(ultimoBackup)) / 86400000 > 7;
+  }, [leads, ultimoBackup]);
+
   async function carregar() {
     try {
       const [r1, r2] = await Promise.all([fetch("/api/leads"), fetch("/api/lists?board=crm")]);
@@ -58,6 +71,13 @@ export default function CrmPage() {
       setErroConexao(String(e.message || e));
     }
     setCarregando(false);
+    // agenda das OS (pós-venda) — silencioso se a conta não tiver OS
+    try {
+      const [ro, rl] = await Promise.all([fetch("/api/os"), fetch("/api/os-leads")]);
+      const jo = await ro.json().catch(() => ({}));
+      const jl = await rl.json().catch(() => []);
+      setOsExtra({ ordens: ro.ok && Array.isArray(jo.ordens) ? jo.ordens : [], docs: rl.ok && Array.isArray(jl) ? jl : [] });
+    } catch (e) { /* sem OS, sem problema */ }
   }
   useEffect(() => { carregar(); }, []);
 
@@ -88,23 +108,42 @@ export default function CrmPage() {
     window.open(waLink(lead.telefone, texto), "_blank");
   }
 
+  // regra anti-spam: 2 mensagens enviadas sem nenhuma resposta -> para de sugerir novos envios
+  function semResposta2x(lead) {
+    return (lead.lembretes || []).filter((l) => l.enviado).length >= 2 && (lead.respostas || []).length === 0;
+  }
+
   const pendencias = useMemo(() => {
     const h = hoje();
     const itens = [];
     for (const lead of leads) {
       if (bloqueado(lead)) continue;
-      for (const lem of lead.lembretes || []) {
-        if (!lem.enviado && lem.data <= h)
-          itens.push({ lead, lem, atrasado: lem.data < h });
+      if (!semResposta2x(lead)) {
+        for (const lem of lead.lembretes || []) {
+          if (!lem.enviado && lem.data <= h)
+            itens.push({ lead, lem, atrasado: lem.data < h });
+        }
       }
       if (ehAniversarioHoje(lead)) {
         const jaFeito = (lead.lembretes || []).some((l) => l.tipo === "ANIVERSARIO" && l.data === h);
         if (!jaFeito) itens.push({ lead, niver: true });
       }
     }
+    // pós-venda das Ordens de Serviço (mini-CRM da tela OS)
+    const ordemPorId = new Map(osExtra.ordens.map((o) => [String(o.id), o]));
+    for (const doc of osExtra.docs) {
+      const o = ordemPorId.get(String(doc.osId));
+      if (!o) continue;
+      const nome = o.data?.client || o.data?.cliente || "OS #" + doc.osId;
+      const telefone = o.data?.clientPhone || o.data?.telefone || "";
+      for (const lem of doc.lembretes || []) {
+        if (!lem.enviado && lem.data <= h)
+          itens.push({ os: true, doc, osNome: nome, osTelefone: telefone, lem, atrasado: lem.data < h });
+      }
+    }
     itens.sort((a, b) => (a.lem?.data || h).localeCompare(b.lem?.data || h));
     return itens;
-  }, [leads]);
+  }, [leads, osExtra]);
 
   const proximos = useMemo(() => {
     const h = hoje(), fim = addDias(h, 7);
@@ -119,10 +158,26 @@ export default function CrmPage() {
   }, [leads]);
 
   function marcarEnviado(lead, lem) {
-    salvarLead({ ...lead, lembretes: lead.lembretes.map((l) => (l.id === lem.id ? { ...l, enviado: true } : l)) });
+    salvarLead({ ...lead, lembretes: lead.lembretes.map((l) => (l.id === lem.id ? { ...l, enviado: true, enviadoEm: hoje() } : l)) });
+  }
+  // cliente respondeu: marca a mensagem como enviada E registra a resposta (alimenta as métricas)
+  function marcarRespondeu(lead, lem) {
+    salvarLead({
+      ...lead,
+      lembretes: lem ? lead.lembretes.map((l) => (l.id === lem.id ? { ...l, enviado: true, enviadoEm: l.enviadoEm || hoje() } : l)) : lead.lembretes,
+      respostas: [...(lead.respostas || []), { data: hoje() }],
+    });
   }
   function marcarNiverFeito(lead) {
-    salvarLead({ ...lead, lembretes: [...(lead.lembretes || []), { id: "n" + Date.now(), data: hoje(), tipo: "ANIVERSARIO", varIdx: 0, enviado: true }] });
+    salvarLead({ ...lead, lembretes: [...(lead.lembretes || []), { id: "n" + Date.now(), data: hoje(), tipo: "ANIVERSARIO", varIdx: 0, enviado: true, enviadoEm: hoje() }] });
+  }
+  async function marcarEnviadoOs(doc, lem) {
+    const lembretes = (doc.lembretes || []).map((l) => (l.id === lem.id ? { ...l, enviado: true, enviadoEm: hoje() } : l));
+    setOsExtra((e) => ({ ...e, docs: e.docs.map((d) => (d.osId === doc.osId ? { ...d, lembretes } : d)) }));
+    await fetch("/api/os-leads", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ osId: doc.osId, tags: doc.tags || [], observacoes: doc.observacoes || [], compras: doc.compras || [], lembretes }),
+    });
   }
 
   async function importarArquivo(e) {
@@ -183,6 +238,8 @@ export default function CrmPage() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(compras.length ? compras : [{}]), "Compras");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lembretes.length ? lembretes : [{}]), "Mensagens");
     XLSX.writeFile(wb, "CRM_InfoCentro_Backup_" + hoje() + ".xlsx");
+    try { localStorage.setItem("ultimo-backup", hoje()); } catch (e) {}
+    setUltimoBackup(hoje());
   }
 
   async function limparTudo() {
@@ -280,6 +337,13 @@ export default function CrmPage() {
       )}
       {!carregando && !erroConexao && (
         <>
+          {backupAtrasado && (
+            <div className="faixa-backup">
+              <Ico n="alerta" size={16} />
+              {ultimoBackup ? <>Seu último backup foi em <b>{fmtBR(ultimoBackup)}</b> — recomendo baixar um novo.</> : <>Você ainda não fez nenhum backup neste navegador.</>}
+              <button className="btn2 primario" onClick={exportar}><Ico n="download" size={14} /> Baixar backup agora</button>
+            </div>
+          )}
           <div className="painel-hoje">
             <div className="ph-head" onClick={() => setPainelAberto(!painelAberto)}>
               <Ico n="inbox" /> Enviar hoje {pendencias.length > 0 && <span className="ph-badge">{pendencias.length}</span>}
@@ -289,6 +353,20 @@ export default function CrmPage() {
               <div>
                 {pendencias.length === 0 && <div className="ph-item vazio">Nenhuma mensagem pendente — tudo em dia!</div>}
                 {pendencias.map((p, i) => {
+                  if (p.os) {
+                    const texto = render(p.lem.tipo, primeiroNome(p.osNome), p.lem.varIdx ?? 0) || (p.lem.texto || "");
+                    return (
+                      <div className="ph-item" key={i}>
+                        <span className={"tipo " + (p.atrasado ? "atrasado" : "")}>
+                          {(p.atrasado ? "ATRASADA · " : "") + "OS · " + (templates[p.lem.tipo]?.titulo || p.lem.tipo || "PERSONALIZADA")}
+                        </span>
+                        <span className="nome">{p.osNome}</span>
+                        {p.osTelefone && <button className="btn2 zap" onClick={() => window.open(waLink(p.osTelefone, texto), "_blank")}><IcoZap size={15} /> Enviar</button>}
+                        <button className="btn2" onClick={() => marcarEnviadoOs(p.doc, p.lem)}><Ico n="check" size={15} /> Enviado</button>
+                        <div className="ph-msg">{texto}</div>
+                      </div>
+                    );
+                  }
                   const texto = p.niver ? render("ANIVERSARIO", primeiroNome(p.lead.nome), 0) : msgDoLembrete(p.lead, p.lem);
                   return (
                     <div className="ph-item" key={i}>
@@ -298,6 +376,7 @@ export default function CrmPage() {
                       <span className="nome">{p.lead.nome || p.lead.telefone}</span>
                       <button className="btn2 zap" onClick={() => abrirZapComMsg(p.lead, texto)}><IcoZap size={15} /> Enviar</button>
                       <button className="btn2" onClick={() => (p.niver ? marcarNiverFeito(p.lead) : marcarEnviado(p.lead, p.lem))}><Ico n="check" size={15} /> Enviado</button>
+                      {!p.niver && <button className="btn2" title="Marcar como enviada E registrar que o cliente respondeu" onClick={() => marcarRespondeu(p.lead, p.lem)}><Ico n="msgCheck" size={15} /> Respondeu</button>}
                       <div className="ph-msg">{texto}</div>
                     </div>
                   );

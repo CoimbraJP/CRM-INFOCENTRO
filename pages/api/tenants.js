@@ -1,9 +1,10 @@
 import { getDb } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { exigirMaster } from "../../lib/auth";
+import { exigirMaster, assinarSessao, gravarCookie, MASTER_PASSWORD } from "../../lib/auth";
 
 // Gestão de usuários do sistema — acessível SOMENTE com a sessão master.
-// O master enxerga e edita apenas nome e senha; nunca os dados (clientes/OS) de cada usuário.
+// Como o login é só por senha, cada senha precisa ser única entre os usuários.
+// POST { entrar: _id } -> master entra direto na conta do usuário (mantendo o vínculo master).
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   try {
@@ -19,10 +20,20 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { nome, senha } = req.body || {};
+      const { nome, senha, entrar } = req.body || {};
+
+      // entrar direto na conta de um usuário, já autenticado
+      if (entrar) {
+        const doc = await col.findOne({ _id: new ObjectId(entrar) });
+        if (!doc) return res.status(404).json({ error: "usuário não encontrado" });
+        gravarCookie(res, assinarSessao({ tenant: doc.id, nome: doc.nome, admin: true }));
+        return res.status(200).json({ ok: true, usuario: doc.nome });
+      }
+
       if (!nome || !senha) return res.status(400).json({ error: "informe nome e senha" });
-      const existe = await col.findOne({ nome: { $regex: `^${String(nome).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } });
-      if (existe) return res.status(400).json({ error: "já existe um usuário com esse nome" });
+      if (String(senha) === MASTER_PASSWORD) return res.status(400).json({ error: "essa senha é reservada" });
+      const senhaEmUso = await col.findOne({ senha: String(senha) });
+      if (senhaEmUso) return res.status(400).json({ error: "essa senha já está em uso por outro usuário — escolha outra" });
       const id = "u" + Date.now();
       await col.insertOne({ id, nome: String(nome).trim(), senha: String(senha), criadoEm: new Date().toISOString() });
       return res.status(200).json({ ok: true, id });
@@ -33,7 +44,12 @@ export default async function handler(req, res) {
       if (!_id) return res.status(400).json({ error: "faltou _id" });
       const set = {};
       if (nome !== undefined && String(nome).trim()) set.nome = String(nome).trim();
-      if (senha !== undefined && String(senha)) set.senha = String(senha);
+      if (senha !== undefined && String(senha)) {
+        if (String(senha) === MASTER_PASSWORD) return res.status(400).json({ error: "essa senha é reservada" });
+        const senhaEmUso = await col.findOne({ senha: String(senha), _id: { $ne: new ObjectId(_id) } });
+        if (senhaEmUso) return res.status(400).json({ error: "essa senha já está em uso por outro usuário — escolha outra" });
+        set.senha = String(senha);
+      }
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
       await col.updateOne({ _id: new ObjectId(_id) }, { $set: set });
       return res.status(200).json({ ok: true });

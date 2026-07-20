@@ -214,6 +214,14 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .card .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
 .tag-chip { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 7px; color: #fff; letter-spacing: .2px; }
 .card .icones { display: flex; gap: 2px; margin-top: 10px; align-items: center; }
+.btn-posvenda {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+  padding: 6px 10px; border-radius: 8px; border: 1px dashed var(--accent);
+  background: var(--accent-suave); color: var(--accent-forte); font-weight: 800; font-size: 11.5px;
+  transition: background .15s ease, transform .15s ease;
+}
+.btn-posvenda:hover { transform: translateY(-1px); }
+[data-theme="dark"] .btn-posvenda { color: var(--accent); }
 .icone-btn {
   background: none; border: none; color: var(--cinza);
   padding: 6px; border-radius: 8px; position: relative;
@@ -332,6 +340,13 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 [data-theme="dark"] .sidebar-toggle:hover { color: var(--accent); }
 .sidebar-itens { display: flex; flex-direction: column; padding: 8px 0; }
 .sidebar-rodape { margin-top: auto; padding: 8px 0; border-top: 1px solid var(--borda); }
+.sidebar-conta {
+  display: flex; align-items: center; gap: 12px; padding: 10px 18px;
+  color: var(--accent-forte); font-weight: 800; font-size: 12.5px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+[data-theme="dark"] .sidebar-conta { color: var(--accent); }
+.sidebar.colapsada .sidebar-conta { justify-content: center; padding: 10px 12px; }
 .sidebar-item {
   display: flex; align-items: center; gap: 12px; padding: 11px 18px; color: var(--texto);
   text-decoration: none; border-left: 3px solid transparent; font-weight: 700; font-size: 13.5px;
@@ -398,6 +413,35 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .info-linha { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--borda); font-size: 13.5px; }
 .info-linha:last-child { border-bottom: none; }
 .info-linha b { color: var(--texto); }
+
+/* ---------- métricas ---------- */
+.grid-metricas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.card-metrica {
+  background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra);
+}
+.metrica-rotulo { font-size: 12px; font-weight: 800; color: var(--cinza); display: flex; align-items: center; gap: 6px; letter-spacing: .3px; }
+.metrica-num { font-size: 30px; font-weight: 800; color: var(--accent-forte); line-height: 1.2; }
+[data-theme="dark"] .metrica-num { color: var(--accent); }
+.metrica-sub { font-size: 12px; color: var(--cinza); }
+.metrica-secao { font-size: 14px; font-weight: 800; margin: 22px 0 10px; }
+.grafico-box { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px; box-shadow: var(--sombra); }
+.grafico-legenda { display: flex; gap: 18px; margin-top: 6px; font-size: 12px; color: var(--cinza); font-weight: 700; }
+.grafico-legenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.tabela-wrap { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; box-shadow: var(--sombra); overflow-x: auto; }
+.tabela-metricas { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tabela-metricas th { text-align: left; padding: 12px 14px; font-size: 11.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--cinza); border-bottom: 1px solid var(--borda); }
+.tabela-metricas td { padding: 11px 14px; border-bottom: 1px solid var(--borda); }
+.tabela-metricas tr:last-child td { border-bottom: none; }
+
+/* faixa de backup atrasado */
+.faixa-backup {
+  margin: 16px 20px 0; padding: 12px 16px; border-radius: 12px;
+  background: var(--amarelo-suave); color: #92400e; border: 1px solid rgba(180, 120, 0, .25);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600;
+}
+[data-theme="dark"] .faixa-backup { color: #fbbf24; }
+.faixa-backup .btn2 { margin-left: auto; }
 
 /* ---------- login / administração ---------- */
 .login-fundo {

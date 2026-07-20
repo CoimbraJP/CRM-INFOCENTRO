@@ -12,6 +12,10 @@ export default async function handler(req, res) {
   try {
     const sessao = exigirLogin(req, res);
     if (!sessao) return;
+    // a integração com o PDV pertence só à conta INFOCENTRO
+    if (sessao.tenant !== "INFOCENTRO") {
+      return res.status(403).json({ configurado: false, restrito: true, error: "A integração com o PDV está disponível apenas na conta INFO Centro." });
+    }
     const PDV_API_URL = (process.env.PDV_API_URL || "").trim();
     const PDV_API_TOKEN = (process.env.PDV_API_TOKEN || "").trim();
 

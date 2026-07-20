@@ -4,7 +4,12 @@ import Layout from "../components/Layout";
 import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { waLink, normalizaFone, primeiroNome } from "../lib/crmHelpers";
+import { waLink, normalizaFone, primeiroNome, hoje, addDias } from "../lib/crmHelpers";
+
+const STATUS_ENTREGUE = ["entregue", "encerrado", "encerrada", "finalizada", "concluida", "concluída", "pronta"];
+function foiEntregue(status) {
+  return STATUS_ENTREGUE.includes(String(status || "").toLowerCase().trim());
+}
 
 // Nomes reais confirmados no retorno do PDV (api/crm-sync): client, clientCPF, clientPhone,
 // clientBirthDate, clientAddress{}, device, deviceFull, devicePassword, defect, accessories,
@@ -133,7 +138,8 @@ export default function OsPage() {
     fetch("/api/os")
       .then((r) => r.json().then((j) => ({ status: r.status, j })))
       .then(({ status, j }) => {
-        if (status === 501) setEstado({ carregando: false, configurado: false, erro: null, ordens: [] });
+        if (j.restrito) setEstado({ carregando: false, configurado: false, erro: null, restrito: true, ordens: [] });
+        else if (status === 501) setEstado({ carregando: false, configurado: false, erro: null, ordens: [] });
         else if (j.error) setEstado({ carregando: false, configurado: !!j.configurado, erro: j.error, ordens: [] });
         else setEstado({ carregando: false, configurado: true, erro: null, ordens: j.ordens || [] });
       })
@@ -185,6 +191,19 @@ export default function OsPage() {
     const dados = { tags: lead.tags || [], observacoes: lead.observacoes || [], compras: lead.compras || [], lembretes: lead.lembretes || [] };
     setOsLeads((m) => new Map(m).set(String(osId), { osId: String(osId), ...dados }));
     await fetch("/api/os-leads", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ osId, ...dados }) });
+  }
+  // agenda D+7 (tudo funcionando?) e D+90 (revisão preventiva) no mini-CRM da OS
+  async function ativarPosVenda(osId, o) {
+    const lead = pseudoLeadDe(osId, o);
+    const h = hoje();
+    await salvarOsLead(osId, {
+      ...lead,
+      lembretes: [
+        ...(lead.lembretes || []),
+        { id: "pv7" + Date.now(), data: addDias(h, 7), tipo: "POS7", varIdx: 0, enviado: false },
+        { id: "pv90" + Date.now(), data: addDias(h, 90), tipo: "POS90", varIdx: 0, enviado: false },
+      ],
+    });
   }
 
   // ---------- organização em listas + ordem dentro da coluna ----------
@@ -319,7 +338,21 @@ export default function OsPage() {
 
       {estado.carregando && <div className="pagina">Carregando…</div>}
 
-      {!estado.carregando && !estado.configurado && !estado.erro && (
+      {!estado.carregando && estado.restrito && (
+        <div className="pagina">
+          <div className="os-placeholder">
+            <div className="icone-grande" style={{ background: "var(--accent-suave)", color: "var(--accent-forte)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Ico n="lock" size={26} />
+            </div>
+            <h3 style={{ marginBottom: 8 }}>Disponível só na conta INFO Centro</h3>
+            <p style={{ color: "var(--cinza)", fontSize: 13.5, lineHeight: 1.6 }}>
+              A integração com o PDV (Ordens de Serviço) pertence à conta INFO Centro. Esta conta usa apenas o CRM.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!estado.carregando && !estado.restrito && !estado.configurado && !estado.erro && (
         <div className="pagina">
           <div className="os-placeholder">
             <div className="icone-grande" style={{ background: "var(--accent-suave)", color: "var(--accent-forte)", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -415,6 +448,7 @@ export default function OsPage() {
                       abrir={(tipo) => setModal({ tipo, osId: o.id, o })}
                       abrirOs={() => setOsDetalhe(o)}
                       promover={() => adicionarAoCrm(o)}
+                      ativarPosVenda={() => ativarPosVenda(String(o.id), o)}
                       zapDireto={() => window.open(waLink(telefone), "_blank")} />
                   );
                 })}
@@ -462,7 +496,7 @@ export default function OsPage() {
 }
 
 // ---------- card da OS: seu próprio mini-CRM (obs/agenda/whatsapp/compras/etiquetas), no mesmo padrão do CRM geral ----------
-function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
+function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
   const cliente = campo(o.data, "cliente") || "sem nome";
   const telefone = campo(o.data, "telefone");
   const equipamento = campo(o.data, "equipamento");
@@ -472,6 +506,7 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDra
   const valor = campo(o.data, "valor");
   const pendentes = (osLead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (osLead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const temPosVenda = (osLead.lembretes || []).some((l) => l.tipo === "POS7" || l.tipo === "POS90");
   const classe = "card"
     + (dragging ? " card-arrastando" : "")
     + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
@@ -485,7 +520,13 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDra
       <div className="tags">
         {status && <span className="tag-chip" style={{ background: corStatus(status) }}>{status}</span>}
         {valor ? <span className="tag-chip" style={{ background: "var(--accent-forte)" }}>{fmtValor(valor)}</span> : null}
+        {temPosVenda && <span className="tag-chip" style={{ background: "#0e7490" }}>pós-venda ✓</span>}
       </div>
+      {foiEntregue(status) && !temPosVenda && telefone && (
+        <button className="btn-posvenda" onClick={ativarPosVenda} title="Agendar mensagens de pós-venda: D+7 (tudo funcionando?) e D+90 (revisão preventiva)">
+          <Ico n="clock" size={13} /> Ativar pós-venda
+        </button>
+      )}
       <div className="icones">
         <button className="icone-btn" title="Observações" onClick={() => abrir("obs")}>
           <Ico n="fileText" />{(osLead.observacoes || []).length > 0 && <span className="mini-badge">{osLead.observacoes.length}</span>}

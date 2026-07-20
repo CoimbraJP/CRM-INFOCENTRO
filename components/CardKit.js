@@ -18,6 +18,7 @@ export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, 
   const { tags: TAGS } = useTags();
   const pendentes = (lead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (lead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const semResposta = (lead.lembretes || []).filter((l) => l.enviado).length >= 2 && (lead.respostas || []).length === 0;
   const classe = "card"
     + (dragging ? " card-arrastando" : "")
     + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
@@ -28,12 +29,13 @@ export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, 
         {lead.nome || "— sem nome —"} {ehAniversarioHoje(lead) && <Ico n="cake" size={15} />}
       </div>
       <div className="servico">{lead.servico} · {lead.telefone}</div>
-      {(lead.tags || []).length > 0 && (
+      {((lead.tags || []).length > 0 || semResposta) && (
         <div className="tags">
-          {lead.tags.map((t) => {
+          {(lead.tags || []).map((t) => {
             const tag = TAGS.find((x) => x.id === t);
             return tag ? <span key={t} className="tag-chip" style={{ background: tag.cor }}>{tag.nome}</span> : null;
           })}
+          {semResposta && <span className="tag-chip" style={{ background: "#6b7280" }} title="2 mensagens enviadas sem resposta — o painel Enviar Hoje para de sugerir envios pra este cliente">sem resposta 2x</span>}
         </div>
       )}
       <div className="icones">
