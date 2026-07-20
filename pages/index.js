@@ -4,7 +4,8 @@ import Layout from "../components/Layout";
 import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, novaCadencia } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { TAGS, hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
+import { useTags } from "../lib/TagsContext";
+import { hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
 
 function msgDoLembreteFactory(render) {
   return function msgDoLembrete(lead, lem) {
@@ -15,6 +16,7 @@ function msgDoLembreteFactory(render) {
 
 export default function CrmPage() {
   const { templates, render } = useTemplates();
+  const { tags: TAGS } = useTags();
   const msgDoLembrete = msgDoLembreteFactory(render);
   const router = useRouter();
 
@@ -29,6 +31,16 @@ export default function CrmPage() {
   const [importOpts, setImportOpts] = useState({ cadencia: true });
   const dragId = useRef(null);
   const dragListaRef = useRef(null);
+  const [arrastandoCard, setArrastandoCard] = useState(null);
+  const [dropCard, setDropCard] = useState(null); // { id, pos }
+  const [pousouCard, setPousouCard] = useState(null);
+  const [arrastandoLista, setArrastandoLista] = useState(null);
+  const [dropLista, setDropLista] = useState(null); // { key, pos }
+
+  function marcarPouso(id) {
+    setPousouCard(id);
+    setTimeout(() => setPousouCard((atual) => (atual === id ? null : atual)), 500);
+  }
 
   async function carregar() {
     try {
@@ -306,23 +318,35 @@ export default function CrmPage() {
               const cards = leadsFiltrados.filter((l) => l.listId === lista.key)
                 .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));
               const soma = cards.reduce((s, l) => s + (l.compras || []).reduce((a, c) => a + (Number(c.valor) || 0), 0), 0);
+              const classeLista = "lista"
+                + (arrastandoLista === lista.key ? " lista-arrastando" : "")
+                + (dropLista?.key === lista.key ? (dropLista.pos === "antes" ? " drop-antes" : " drop-depois") : "");
               return (
-                <div key={lista.key} className="lista"
-                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }}
+                <div key={lista.key} className={classeLista}
+                  onDragOver={(e) => { e.preventDefault(); if (!dragListaRef.current) e.currentTarget.classList.add("drag-over"); }}
                   onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
                   onDrop={(e) => {
                     e.currentTarget.classList.remove("drag-over");
                     const id = dragId.current;
+                    if (!id) return;
                     const lead = leads.find((x) => x._id === id);
                     if (!lead) return;
                     const semOrigem = cards.filter((c) => c._id !== id);
                     const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => c.ordem ?? 0)) : 0;
                     if (lead.listId !== lista.key || semOrigem.length) salvarLead({ ...lead, listId: lista.key, ordem: maxOrdem + 1 });
+                    marcarPouso(id); setDropCard(null);
                   }}>
                   <div className="lista-head" draggable
-                    onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; }}
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => moverListaParaPosicao(e, lista)}>
+                    onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; setArrastandoLista(lista.key); }}
+                    onDragEnd={() => { setArrastandoLista(null); setDropLista(null); }}
+                    onDragOver={(e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      if (!dragListaRef.current || dragListaRef.current === lista.key) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const antes = (e.clientX - rect.left) < rect.width / 2;
+                      setDropLista({ key: lista.key, pos: antes ? "antes" : "depois" });
+                    }}
+                    onDrop={(e) => { moverListaParaPosicao(e, lista); setArrastandoLista(null); setDropLista(null); }}>
                     <Ico n="gripVertical" size={14} className="arrasta-lista" />
                     <span className="titulo">{lista.nome}</span>
                     <span className="qtd">{cards.length}</span>
@@ -332,11 +356,23 @@ export default function CrmPage() {
                   </div>
                   {cards.map((lead) => (
                     <Card key={lead._id} lead={lead}
-                      onDragStart={() => (dragId.current = lead._id)}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      dragging={arrastandoCard === lead._id}
+                      dropPos={dropCard?.id === lead._id ? dropCard.pos : null}
+                      pousou={pousouCard === lead._id}
+                      onDragStart={() => { dragId.current = lead._id; setArrastandoCard(lead._id); }}
+                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); }}
+                      onDragOver={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const idOrigem = dragId.current;
+                        if (!idOrigem || idOrigem === lead._id) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const antes = (e.clientY - rect.top) < rect.height / 2;
+                        setDropCard({ id: lead._id, pos: antes ? "antes" : "depois" });
+                      }}
                       onDrop={(e) => {
                         e.preventDefault(); e.stopPropagation();
                         const idOrigem = dragId.current;
+                        setDropCard(null);
                         if (!idOrigem || idOrigem === lead._id) return;
                         const origem = leads.find((l) => l._id === idOrigem);
                         if (!origem) return;
@@ -349,6 +385,7 @@ export default function CrmPage() {
                         const o1 = viz1?.ordem ?? null, o2 = viz2?.ordem ?? null;
                         const novaOrdem = o1 == null && o2 == null ? Date.now() : o1 == null ? o2 - 1 : o2 == null ? o1 + 1 : (o1 + o2) / 2;
                         salvarLead({ ...origem, listId: lista.key, ordem: novaOrdem });
+                        marcarPouso(idOrigem);
                       }}
                       abrir={(tipo) => setModal({ tipo, lead })}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />

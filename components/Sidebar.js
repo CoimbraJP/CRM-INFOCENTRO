@@ -29,6 +29,12 @@ export default function Sidebar({ colapsada, alternar }) {
           );
         })}
       </div>
+      <div className="sidebar-rodape">
+        <Link href="/configuracoes" className={"sidebar-item" + (router.pathname === "/configuracoes" ? " ativo" : "")} title="Configurações">
+          <Ico n="settings" size={19} />
+          <span className="sidebar-label">Configurações</span>
+        </Link>
+      </div>
     </nav>
   );
 }

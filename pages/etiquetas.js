@@ -3,10 +3,12 @@ import Layout from "../components/Layout";
 import { Card, Modal, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
 import { Ico } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { TAGS, waLink, primeiroNome, fmtDinheiro } from "../lib/crmHelpers";
+import { useTags } from "../lib/TagsContext";
+import { waLink, primeiroNome, fmtDinheiro } from "../lib/crmHelpers";
 
 export default function EtiquetasPage() {
   const { templates, render } = useTemplates();
+  const { tags: TAGS } = useTags();
   const msgDoLembrete = (lead, lem) => (lem.tipo ? render(lem.tipo, primeiroNome(lead.nome), lem.varIdx ?? 0) : (lem.texto || "").replaceAll("{nome}", primeiroNome(lead.nome)));
 
   const [leads, setLeads] = useState([]);

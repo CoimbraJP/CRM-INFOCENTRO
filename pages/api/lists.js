@@ -1,6 +1,6 @@
 import { getDb } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { TAGS } from "../../lib/crmHelpers";
+import { TAGS as TAGS_PADRAO } from "../../lib/crmHelpers";
 
 const DEFAULT_LISTS_CRM = [
   { key: "inbox", nome: "INBOX", ordem: 0, fixa: true, board: "crm" },
@@ -11,10 +11,22 @@ const DEFAULT_LISTS_CRM = [
   { key: "nao_perturbe", nome: "NÃO PERTURBE 🚫", ordem: 5, fixa: true, board: "crm" },
 ];
 
-function defaultListsTags() {
+// as colunas do board de Etiquetas espelham as etiquetas cadastradas em Configurações
+// (collection "tags"), pra manter nome/cor sempre sincronizados em todo o sistema.
+async function defaultListsTags(db) {
+  const tagsCol = db.collection("tags");
+  let tags = await tagsCol.find({}).sort({ ordem: 1 }).toArray();
+  if (tags.length === 0) {
+    try {
+      await tagsCol.insertMany(TAGS_PADRAO.map((t, i) => ({ ...t, ordem: i })), { ordered: false });
+    } catch (e) {
+      if (e.code !== 11000) throw e;
+    }
+    tags = await tagsCol.find({}).sort({ ordem: 1 }).toArray();
+  }
   return [
     { key: "sem_etiqueta", nome: "SEM ETIQUETA", ordem: 0, fixa: true, board: "tags" },
-    ...TAGS.map((t, i) => ({ key: "tag_" + t.id, nome: t.nome.toUpperCase(), ordem: i + 1, fixa: false, board: "tags", cor: t.cor, tagId: t.id })),
+    ...tags.map((t, i) => ({ key: "tag_" + t.id, nome: t.nome.toUpperCase(), ordem: i + 1, fixa: false, board: "tags", cor: t.cor, tagId: t.id })),
   ];
 }
 
@@ -24,9 +36,9 @@ function defaultListsOs() {
   ];
 }
 
-function seedPara(board) {
+async function seedPara(board, db) {
   if (board === "crm") return DEFAULT_LISTS_CRM;
-  if (board === "tags") return defaultListsTags();
+  if (board === "tags") return defaultListsTags(db);
   if (board === "os") return defaultListsOs();
   // board novo/desconhecido — pelo menos uma coluna inicial, já com o board certo
   return [{ key: "todas", nome: "TODAS", ordem: 0, fixa: true, board }];
@@ -52,7 +64,7 @@ export default async function handler(req, res) {
       let lists = await col.find(filtro).sort({ ordem: 1 }).toArray();
 
       if (lists.length === 0) {
-        const seed = seedPara(board);
+        const seed = await seedPara(board, db);
         try {
           await col.insertMany(seed.map((l) => ({ ...l })), { ordered: false });
         } catch (e) {

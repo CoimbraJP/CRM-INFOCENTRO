@@ -118,6 +118,16 @@ export default function OsPage() {
   const [menuOrdenar, setMenuOrdenar] = useState(false);
   const dragId = useRef(null);
   const dragListaRef = useRef(null);
+  const [arrastandoCard, setArrastandoCard] = useState(null);
+  const [dropCard, setDropCard] = useState(null); // { id, pos }
+  const [pousouCard, setPousouCard] = useState(null);
+  const [arrastandoLista, setArrastandoLista] = useState(null);
+  const [dropLista, setDropLista] = useState(null); // { key, pos }
+
+  function marcarPouso(id) {
+    setPousouCard(id);
+    setTimeout(() => setPousouCard((atual) => (atual === id ? null : atual)), 500);
+  }
 
   function carregarTudo() {
     fetch("/api/os")
@@ -333,9 +343,12 @@ export default function OsPage() {
             const cards = ordensFiltradas.filter((o) => listaDe(o.id) === lista.key)
               .sort((a, b) => ordemDe(a.id) - ordemDe(b.id));
             const soma = cards.reduce((s, o) => s + numeroValor(campo(o.data, "valor")), 0);
+            const classeLista = "lista"
+              + (arrastandoLista === lista.key ? " lista-arrastando" : "")
+              + (dropLista?.key === lista.key ? (dropLista.pos === "antes" ? " drop-antes" : " drop-depois") : "");
             return (
-              <div key={lista.key} className="lista"
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("drag-over"); }}
+              <div key={lista.key} className={classeLista}
+                onDragOver={(e) => { e.preventDefault(); if (!dragListaRef.current) e.currentTarget.classList.add("drag-over"); }}
                 onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
                 onDrop={(e) => {
                   e.currentTarget.classList.remove("drag-over");
@@ -344,11 +357,19 @@ export default function OsPage() {
                   const semOrigem = cards.filter((c) => String(c.id) !== String(id));
                   const maxOrdem = semOrigem.length ? Math.max(...semOrigem.map((c) => ordemDe(c.id))) : 0;
                   moverOs(id, lista.key, maxOrdem + 1);
+                  marcarPouso(id); setDropCard(null);
                 }}>
                 <div className="lista-head" draggable
-                  onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; }}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => moverListaParaPosicao(e, lista)}>
+                  onDragStart={(e) => { e.stopPropagation(); dragListaRef.current = lista.key; setArrastandoLista(lista.key); }}
+                  onDragEnd={() => { setArrastandoLista(null); setDropLista(null); }}
+                  onDragOver={(e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    if (!dragListaRef.current || dragListaRef.current === lista.key) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const antes = (e.clientX - rect.left) < rect.width / 2;
+                    setDropLista({ key: lista.key, pos: antes ? "antes" : "depois" });
+                  }}
+                  onDrop={(e) => { moverListaParaPosicao(e, lista); setArrastandoLista(null); setDropLista(null); }}>
                   <Ico n="gripVertical" size={14} className="arrasta-lista" />
                   <span className="titulo">{lista.nome}</span>
                   <span className="qtd">{cards.length}</span>
@@ -363,11 +384,23 @@ export default function OsPage() {
                   return (
                     <CardOs key={o.id} o={o} osLead={pseudoLeadDe(o.id, o)}
                       leadCRM={leadCRM}
-                      onDragStart={() => (dragId.current = String(o.id))}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      dragging={arrastandoCard === String(o.id)}
+                      dropPos={dropCard?.id === String(o.id) ? dropCard.pos : null}
+                      pousou={pousouCard === String(o.id)}
+                      onDragStart={() => { dragId.current = String(o.id); setArrastandoCard(String(o.id)); }}
+                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); }}
+                      onDragOver={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const idOrigem = dragId.current;
+                        if (!idOrigem || String(idOrigem) === String(o.id)) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const antes = (e.clientY - rect.top) < rect.height / 2;
+                        setDropCard({ id: String(o.id), pos: antes ? "antes" : "depois" });
+                      }}
                       onDrop={(e) => {
                         e.preventDefault(); e.stopPropagation();
                         const idOrigem = dragId.current;
+                        setDropCard(null);
                         if (!idOrigem || String(idOrigem) === String(o.id)) return;
                         const rect = e.currentTarget.getBoundingClientRect();
                         const antes = (e.clientY - rect.top) < rect.height / 2;
@@ -377,6 +410,7 @@ export default function OsPage() {
                         const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
                         const novaOrdem = ordemEntre(viz1 ? ordemDe(viz1.id) : null, viz2 ? ordemDe(viz2.id) : null);
                         moverOs(idOrigem, lista.key, novaOrdem);
+                        marcarPouso(idOrigem);
                       }}
                       abrir={(tipo) => setModal({ tipo, osId: o.id, o })}
                       abrirOs={() => setOsDetalhe(o)}
@@ -428,7 +462,7 @@ export default function OsPage() {
 }
 
 // ---------- card da OS: seu próprio mini-CRM (obs/agenda/whatsapp/compras/etiquetas), no mesmo padrão do CRM geral ----------
-function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDragStart, onDragOver, onDrop }) {
+function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
   const cliente = campo(o.data, "cliente") || "sem nome";
   const telefone = campo(o.data, "telefone");
   const equipamento = campo(o.data, "equipamento");
@@ -438,8 +472,12 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, zapDireto, onDra
   const valor = campo(o.data, "valor");
   const pendentes = (osLead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (osLead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const classe = "card"
+    + (dragging ? " card-arrastando" : "")
+    + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
+    + (pousou ? " card-pousou" : "");
   return (
-    <div className="card" draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+    <div className={classe} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}>
       <div className="nome" style={{ cursor: "pointer" }} onClick={abrirOs}>{o.id} - {cliente}</div>
       {equipamento && <div className="servico">{equipamento}</div>}
       {defeito && <div className="servico">{defeito}</div>}

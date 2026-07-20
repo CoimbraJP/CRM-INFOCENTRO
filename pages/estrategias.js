@@ -70,17 +70,21 @@ function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar }) {
   }
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 820 }}>
       <button className="btn2" style={{ marginBottom: 16 }} onClick={voltar}><Ico n="chevronLeft" size={15} /> Voltar</button>
-      <h2 style={{ fontSize: 18, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-        <Ico n={meta.icone} /> {meta.titulo}
-      </h2>
-      <div className="pagina-sub" style={{ marginBottom: 18 }}>{meta.subtitulo} — use <code>{"{nome}"}</code> onde quiser que apareça o primeiro nome do cliente.</div>
+
+      <div className="editor-estrategia-head">
+        <div className="icone-grande"><Ico n={meta.icone} size={22} /></div>
+        <div>
+          <h2 style={{ fontSize: 18, marginBottom: 2 }}>{meta.titulo}</h2>
+          <div style={{ fontSize: 13, color: "var(--cinza)" }}>{meta.subtitulo} — use <code>{"{nome}"}</code> onde quiser o primeiro nome do cliente.</div>
+        </div>
+      </div>
 
       <div className="editor-variacoes">
         {variacoes.map((v, i) => (
           <div className="variacao-box" key={i}>
-            <label style={{ marginTop: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label>
               <span>Variação {i + 1}</span>
               {variacoes.length > 1 && (
                 <button className="btn2 perigo" style={{ padding: "4px 8px" }} onClick={() => remover(i)}><Ico n="trash" size={13} /></button>
@@ -93,7 +97,7 @@ function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar }) {
         <button className="btn2" onClick={adicionar} style={{ alignSelf: "flex-start" }}><Ico n="plus" size={14} /> Adicionar variação</button>
       </div>
 
-      <div className="acoes" style={{ marginTop: 20 }}>
+      <div className="editor-rodape">
         <button className="btn2 primario" disabled={salvando} onClick={onSalvar}>
           <Ico n="save" size={15} /> {salvando ? "Salvando…" : "Salvar estratégia"}
         </button>

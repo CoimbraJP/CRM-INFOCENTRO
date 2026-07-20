@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Ico, IcoZap } from "../lib/icons";
-import { TAGS, hoje, fmtBR, fmtDinheiro, ehAniversarioHoje, addDias } from "../lib/crmHelpers";
+import { hoje, fmtBR, fmtDinheiro, ehAniversarioHoje, addDias } from "../lib/crmHelpers";
+import { useTags } from "../lib/TagsContext";
 
 export function novaCadencia(base) {
   const b = base || hoje();
@@ -13,11 +14,16 @@ export function novaCadencia(base) {
 }
 
 // ---------------- card ----------------
-export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop }) {
+export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
+  const { tags: TAGS } = useTags();
   const pendentes = (lead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (lead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
+  const classe = "card"
+    + (dragging ? " card-arrastando" : "")
+    + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
+    + (pousou ? " card-pousou" : "");
   return (
-    <div className="card" draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
+    <div className={classe} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}>
       <div className="nome" style={{ cursor: "pointer" }} onClick={() => abrir("editar")}>
         {lead.nome || "— sem nome —"} {ehAniversarioHoje(lead) && <Ico n="cake" size={15} />}
       </div>
@@ -208,12 +214,13 @@ export function ModalCompras({ lead, salvar }) {
 }
 
 export function ModalTags({ lead, salvar }) {
+  const { tags: TAGS } = useTags();
   if (!lead) return null;
   const ativa = (id) => (lead.tags || []).includes(id);
   return (
     <div>
       <h2><Ico n="tag" /> Etiquetas — {lead.nome || lead.telefone}</h2>
-      <p style={{ fontSize: 13, color: "var(--cinza)", marginBottom: 8 }}>Clique para ativar/desativar. As etiquetas aparecem no card e funcionam na busca.</p>
+      <p style={{ fontSize: 13, color: "var(--cinza)", marginBottom: 8 }}>Clique para ativar/desativar. As etiquetas aparecem no card e funcionam na busca. Pra criar, renomear ou mudar a cor das etiquetas, use Configurações.</p>
       {TAGS.map((t) => (
         <button key={t.id} className={"tag-opcao " + (ativa(t.id) ? "on" : "off")} style={{ background: t.cor }}
           onClick={() => salvar({ ...lead, tags: ativa(t.id) ? lead.tags.filter((x) => x !== t.id) : [...(lead.tags || []), t.id] })}>
