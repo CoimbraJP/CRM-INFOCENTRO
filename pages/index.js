@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "../components/Layout";
-import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, novaCadencia } from "../components/CardKit";
+import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo, novaCadencia } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
+import { STRATEGY_META } from "../lib/messages";
 import { hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
+
+// por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
+// lista própria da estratégia — as demais (D5, D30, aniversário...) o usuário liga depois.
+const TIPOS_COM_AUTOMACAO = ["D0"];
 
 function msgDoLembreteFactory(render) {
   return function msgDoLembrete(lead, lem) {
@@ -106,6 +111,31 @@ export default function CrmPage() {
   function abrirZapComMsg(lead, texto) {
     if (bloqueado(lead)) { alert("Este cliente está em NÃO PERTURBE — envio bloqueado."); return; }
     window.open(waLink(lead.telefone, texto), "_blank");
+  }
+
+  // DISPARO: abre o WhatsApp com o texto escolhido. Por hora, só a Apresentação (D0) também
+  // conta como enviada e move o card pra uma lista própria da estratégia (as demais ainda não).
+  async function dispararEstrategia(lead, tipo, texto) {
+    if (bloqueado(lead)) { alert("Este cliente está em NÃO PERTURBE — envio bloqueado."); return; }
+    window.open(waLink(lead.telefone, texto), "_blank");
+    if (!TIPOS_COM_AUTOMACAO.includes(tipo)) return;
+
+    const meta = STRATEGY_META.find((m) => m.tipo === tipo);
+    const keyLista = "estrategia_" + tipo;
+    if (!lists.some((l) => l.key === keyLista)) {
+      await fetch("/api/lists", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: (meta?.titulo || tipo).toUpperCase(), board: "crm", key: keyLista }),
+      });
+      setLists((ls) => [...ls, { key: keyLista, nome: (meta?.titulo || tipo).toUpperCase(), ordem: ls.length, fixa: false, board: "crm" }]);
+    }
+    const h = hoje();
+    salvarLead({
+      ...lead,
+      listId: keyLista,
+      ordem: Date.now(),
+      lembretes: [...(lead.lembretes || []), { id: "disp" + Date.now(), data: h, tipo, varIdx: 0, enviado: true, enviadoEm: h }],
+    });
   }
 
   // regra anti-spam: 2 mensagens enviadas sem nenhuma resposta -> para de sugerir novos envios
@@ -487,6 +517,7 @@ export default function CrmPage() {
               {modal.tipo === "agenda" && <ModalAgenda lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} enviar={abrirZapComMsg} templates={templates} msgDoLembrete={msgDoLembrete} />}
               {modal.tipo === "compras" && <ModalCompras lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} />}
               {modal.tipo === "tags" && <ModalTags lead={leads.find((l) => l._id === modal.lead._id)} salvar={salvarLead} />}
+              {modal.tipo === "disparo" && <ModalDisparo lead={leads.find((l) => l._id === modal.lead._id)} templates={templates} render={render} enviar={(lead, tipo, texto) => { dispararEstrategia(lead, tipo, texto); setModal(null); }} />}
             </Modal>
           )}
         </>

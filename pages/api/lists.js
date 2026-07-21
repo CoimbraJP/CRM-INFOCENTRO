@@ -83,10 +83,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { nome } = req.body || {};
+      const { nome, key: keyDesejada } = req.body || {};
       if (!nome) return res.status(400).json({ error: "faltou nome" });
+      const key = keyDesejada || "l_" + Date.now();
+      // idempotente: se já existe uma lista com essa key neste board/usuário, só devolve ela
+      // (usado pelo DISPARO pra criar a lista da estratégia só na primeira vez)
+      if (keyDesejada) {
+        const existente = await col.findOne({ $and: [{ key }, filtro] });
+        if (existente) return res.status(200).json({ ok: true, key, jaExistia: true });
+      }
       const count = await col.countDocuments(filtro);
-      const key = "l_" + Date.now();
       await col.insertOne({ key, nome, ordem: count, fixa: false, board, tenant: sessao.tenant });
       return res.status(200).json({ ok: true, key });
     }

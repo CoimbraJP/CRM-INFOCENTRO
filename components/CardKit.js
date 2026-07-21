@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Ico, IcoZap } from "../lib/icons";
-import { hoje, fmtBR, fmtDinheiro, ehAniversarioHoje, addDias } from "../lib/crmHelpers";
+import { hoje, fmtBR, fmtDinheiro, ehAniversarioHoje, addDias, primeiroNome } from "../lib/crmHelpers";
 import { useTags } from "../lib/TagsContext";
+import { STRATEGY_META } from "../lib/messages";
 
 export function novaCadencia(base) {
   const b = base || hoje();
@@ -51,6 +52,7 @@ export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, 
         </button>
         <button className="icone-btn" title="Etiquetas" onClick={() => abrir("tags")}><Ico n="tag" /></button>
       </div>
+      <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
     </div>
   );
 }
@@ -229,6 +231,54 @@ export function ModalTags({ lead, salvar }) {
           {ativa(t.id) && <Ico n="check" size={13} />}{t.nome}
         </button>
       ))}
+    </div>
+  );
+}
+
+// Disparo rápido: escolhe uma estratégia cadastrada (Estratégias), escolhe a variação
+// e manda pro WhatsApp já com o texto pronto — sem depender de agenda/cadência.
+export function ModalDisparo({ lead, templates, render, enviar }) {
+  const [tipo, setTipo] = useState(null);
+  if (!lead) return null;
+
+  if (!tipo) {
+    const disponiveis = STRATEGY_META.filter((m) => m.habilitado);
+    return (
+      <div>
+        <h2><Ico n="send" /> Disparo — {lead.nome || lead.telefone}</h2>
+        <p style={{ fontSize: 13, color: "var(--cinza)", marginBottom: 10 }}>Escolha a estratégia que você quer acionar agora pra este cliente.</p>
+        <div className="grid-estrategias grid-estrategias-compacta">
+          {disponiveis.map((m) => (
+            <div key={m.tipo} className="card-estrategia" onClick={() => setTipo(m.tipo)}>
+              <div className="icone-grande"><Ico n={m.icone} size={18} /></div>
+              <h3>{m.titulo}</h3>
+              <p>{m.subtitulo}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const meta = STRATEGY_META.find((m) => m.tipo === tipo);
+  const variacoes = templates?.[tipo]?.variacoes || [];
+  return (
+    <div>
+      <button className="btn2" style={{ marginBottom: 14 }} onClick={() => setTipo(null)}><Ico n="chevronLeft" size={14} /> Trocar estratégia</button>
+      <h2><Ico n={meta.icone} /> {meta.titulo} — {lead.nome || lead.telefone}</h2>
+      {variacoes.length === 0 && <div className="vazio">Nenhuma variação cadastrada pra essa estratégia ainda — edite em Estratégias.</div>}
+      {variacoes.map((_, i) => {
+        const texto = render(tipo, primeiroNome(lead.nome), i);
+        return (
+          <div className="variacao-box" key={i} style={{ marginBottom: 10 }}>
+            <label><span>Variação {i + 1}</span></label>
+            <div className="variacao-preview" style={{ marginTop: 0 }}>{texto}</div>
+            <div className="acoes" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+              <button className="btn2 zap" onClick={() => enviar(lead, tipo, texto)}><IcoZap size={14} /> Enviar</button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

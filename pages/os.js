@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Layout from "../components/Layout";
-import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
+import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
+import { STRATEGY_META } from "../lib/messages";
 import { waLink, normalizaFone, primeiroNome, hoje, addDias } from "../lib/crmHelpers";
 
 const STATUS_ENTREGUE = ["entregue", "encerrado", "encerrada", "finalizada", "concluida", "concluída", "pronta"];
 function foiEntregue(status) {
   return STATUS_ENTREGUE.includes(String(status || "").toLowerCase().trim());
 }
+// por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
+// lista própria da estratégia — as demais o usuário liga depois.
+const TIPOS_COM_AUTOMACAO = ["D0"];
 
 // Nomes reais confirmados no retorno do PDV (api/crm-sync): client, clientCPF, clientPhone,
 // clientBirthDate, clientAddress{}, device, deviceFull, devicePassword, defect, accessories,
@@ -191,6 +195,30 @@ export default function OsPage() {
     const dados = { tags: lead.tags || [], observacoes: lead.observacoes || [], compras: lead.compras || [], lembretes: lead.lembretes || [] };
     setOsLeads((m) => new Map(m).set(String(osId), { osId: String(osId), ...dados }));
     await fetch("/api/os-leads", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ osId, ...dados }) });
+  }
+  // DISPARO: abre o WhatsApp com o texto escolhido. Por hora, só a Apresentação (D0) também
+  // conta como enviada e move o card pra uma lista própria da estratégia neste board de OS.
+  async function dispararEstrategiaOs(osId, o, tipo, texto) {
+    const telefone = campo(o.data, "telefone");
+    window.open(waLink(telefone, texto), "_blank");
+    if (!TIPOS_COM_AUTOMACAO.includes(tipo)) return;
+
+    const meta = STRATEGY_META.find((m) => m.tipo === tipo);
+    const keyLista = "estrategia_" + tipo;
+    if (!lists.some((l) => l.key === keyLista)) {
+      await fetch("/api/lists", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: (meta?.titulo || tipo).toUpperCase(), board: "os", key: keyLista }),
+      });
+      setLists((ls) => [...ls, { key: keyLista, nome: (meta?.titulo || tipo).toUpperCase(), ordem: ls.length, fixa: false, board: "os" }]);
+    }
+    await moverOs(osId, keyLista, Date.now());
+    const lead = pseudoLeadDe(osId, o);
+    const h = hoje();
+    await salvarOsLead(osId, {
+      ...lead,
+      lembretes: [...(lead.lembretes || []), { id: "disp" + Date.now(), data: h, tipo, varIdx: 0, enviado: true, enviadoEm: h }],
+    });
   }
   // agenda D+7 (tudo funcionando?) e D+90 (revisão preventiva) no mini-CRM da OS
   async function ativarPosVenda(osId, o) {
@@ -466,6 +494,7 @@ export default function OsPage() {
           {modal.tipo === "agenda" && <ModalAgenda lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} enviar={(lead, texto) => window.open(waLink(lead.telefone, texto), "_blank")} templates={templates} msgDoLembrete={msgDoLembrete} />}
           {modal.tipo === "compras" && <ModalCompras lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} />}
           {modal.tipo === "tags" && <ModalTags lead={pseudoLeadDe(modal.osId, modal.o)} salvar={(l) => salvarOsLead(modal.osId, l)} />}
+          {modal.tipo === "disparo" && <ModalDisparo lead={pseudoLeadDe(modal.osId, modal.o)} templates={templates} render={render} enviar={(lead, tipo, texto) => { dispararEstrategiaOs(modal.osId, modal.o, tipo, texto); setModal(null); }} />}
         </Modal>
       )}
 
@@ -527,6 +556,7 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, 
           <Ico n="clock" size={13} /> Ativar pós-venda
         </button>
       )}
+      <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
       <div className="icones">
         <button className="icone-btn" title="Observações" onClick={() => abrir("obs")}>
           <Ico n="fileText" />{(osLead.observacoes || []).length > 0 && <span className="mini-badge">{osLead.observacoes.length}</span>}

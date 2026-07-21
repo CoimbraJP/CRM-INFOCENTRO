@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Layout from "../components/Layout";
-import { Card, Modal, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags } from "../components/CardKit";
+import { Card, Modal, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo } from "../components/CardKit";
 import { Ico } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
-import { waLink, primeiroNome, fmtDinheiro } from "../lib/crmHelpers";
+import { STRATEGY_META } from "../lib/messages";
+import { hoje, waLink, primeiroNome, fmtDinheiro } from "../lib/crmHelpers";
+
+// por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
+// lista própria da estratégia (no board do CRM) — as demais o usuário liga depois.
+const TIPOS_COM_AUTOMACAO = ["D0"];
 
 export default function EtiquetasPage() {
   const { templates, render } = useTemplates();
@@ -40,6 +45,28 @@ export default function EtiquetasPage() {
   }
   function abrirZapComMsg(lead, texto) {
     window.open(waLink(lead.telefone, texto), "_blank");
+  }
+
+  // DISPARO: abre o WhatsApp com o texto escolhido. Por hora, só a Apresentação (D0) também
+  // conta como enviada e move o card pra uma lista própria da estratégia no board do CRM
+  // (esta tela é a de Etiquetas — o listId movido é o do quadro CRM, não afeta a coluna aqui).
+  async function dispararEstrategia(lead, tipo, texto) {
+    window.open(waLink(lead.telefone, texto), "_blank");
+    if (!TIPOS_COM_AUTOMACAO.includes(tipo)) return;
+
+    const meta = STRATEGY_META.find((m) => m.tipo === tipo);
+    const keyLista = "estrategia_" + tipo;
+    await fetch("/api/lists", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: (meta?.titulo || tipo).toUpperCase(), board: "crm", key: keyLista }),
+    });
+    const h = hoje();
+    salvarLead({
+      ...lead,
+      listId: keyLista,
+      ordem: Date.now(),
+      lembretes: [...(lead.lembretes || []), { id: "disp" + Date.now(), data: h, tipo, varIdx: 0, enviado: true, enviadoEm: h }],
+    });
   }
 
   // arrastar pra uma coluna de etiqueta também aplica a tag no cliente (sincronizado com os chips do CRM)
@@ -132,6 +159,7 @@ export default function EtiquetasPage() {
                 if (listaAtual?.tagId && !(novo.tags || []).includes(listaAtual.tagId)) novo.tagListId = "sem_etiqueta";
                 salvarLead(novo);
               }} />}
+              {modal.tipo === "disparo" && <ModalDisparo lead={leads.find((l) => l._id === modal.lead._id)} templates={templates} render={render} enviar={(lead, tipo, texto) => { dispararEstrategia(lead, tipo, texto); setModal(null); }} />}
             </Modal>
           )}
         </>
