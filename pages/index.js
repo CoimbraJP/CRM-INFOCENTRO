@@ -191,6 +191,13 @@ export default function CrmPage() {
     salvarLead({ ...lead, lembretes: lead.lembretes.map((l) => (l.id === lem.id ? { ...l, enviado: true, enviadoEm: hoje() } : l)) });
   }
   // cliente respondeu: marca a mensagem como enviada E registra a resposta (alimenta as métricas)
+  // liga/desliga "respondeu" direto no card. Ligar registra a resposta de hoje; desligar limpa
+  // todas (o que interessa é o booleano — o array alimenta as Métricas e a regra "sem resposta 2x").
+  function alternarResposta(lead) {
+    const jaTem = (lead.respostas || []).length > 0;
+    salvarLead({ ...lead, respostas: jaTem ? [] : [{ data: hoje() }] });
+  }
+
   function marcarRespondeu(lead, lem) {
     salvarLead({
       ...lead,
@@ -497,6 +504,7 @@ export default function CrmPage() {
                         marcarPouso(idOrigem);
                       }}
                       abrir={(tipo) => setModal({ tipo, lead })}
+                      alternarResposta={alternarResposta}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
                   ))}
                 </div>

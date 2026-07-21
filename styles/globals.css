@@ -230,6 +230,28 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   transition: filter .15s ease, transform .15s ease, box-shadow .15s ease;
 }
 .btn-disparo:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 211, 102, .35); }
+.card-rodape { display: flex; align-items: center; gap: 8px; }
+.card-rodape .btn-disparo { flex: 1; }
+/* liga/desliga de "respondeu" — só aparece em cards que já receberam algum envio */
+.toggle-resposta {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  margin-top: 10px; padding: 7px 9px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--borda); background: var(--fundo-suave); color: var(--cinza);
+  font-size: 10px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.toggle-resposta:hover { border-color: var(--accent); color: var(--texto); }
+.toggle-trilho {
+  width: 26px; height: 15px; border-radius: 999px; background: var(--borda);
+  position: relative; flex-shrink: 0; transition: background .18s ease;
+}
+.toggle-bolinha {
+  position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .18s ease;
+}
+.toggle-resposta.ligado { background: rgba(37, 211, 102, .12); border-color: var(--zap); color: var(--zap); }
+.toggle-resposta.ligado .toggle-trilho { background: var(--zap); }
+.toggle-resposta.ligado .toggle-bolinha { transform: translateX(11px); }
 .grid-estrategias-compacta { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .grid-estrategias-compacta .card-estrategia { min-height: 96px; padding: 12px; }
 .icone-btn {

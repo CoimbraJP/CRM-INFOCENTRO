@@ -69,6 +69,13 @@ export default function EtiquetasPage() {
     });
   }
 
+  // liga/desliga "respondeu" direto no card. Ligar registra a resposta de hoje; desligar limpa
+  // todas (o que interessa é o booleano — o array alimenta as Métricas e a regra "sem resposta 2x").
+  function alternarResposta(lead) {
+    const jaTem = (lead.respostas || []).length > 0;
+    salvarLead({ ...lead, respostas: jaTem ? [] : [{ data: hoje() }] });
+  }
+
   // arrastar pra uma coluna de etiqueta também aplica a tag no cliente (sincronizado com os chips do CRM)
   function moverParaColuna(lead, lista) {
     const novo = { ...lead, tagListId: lista.key };
@@ -139,6 +146,7 @@ export default function EtiquetasPage() {
                     <Card key={lead._id} lead={lead}
                       onDragStart={() => (dragId.current = lead._id)}
                       abrir={(tipo) => setModal({ tipo, lead })}
+                      alternarResposta={alternarResposta}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
                   ))}
                 </div>

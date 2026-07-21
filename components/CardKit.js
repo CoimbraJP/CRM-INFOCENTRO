@@ -15,11 +15,13 @@ export function novaCadencia(base) {
 }
 
 // ---------------- card ----------------
-export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
+export function Card({ lead, abrir, zapDireto, alternarResposta, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
   const { tags: TAGS } = useTags();
   const pendentes = (lead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (lead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
-  const semResposta = (lead.lembretes || []).filter((l) => l.enviado).length >= 2 && (lead.respostas || []).length === 0;
+  const enviadas = (lead.lembretes || []).filter((l) => l.enviado).length;
+  const respondeu = (lead.respostas || []).length > 0;
+  const semResposta = enviadas >= 2 && !respondeu;
   const classe = "card"
     + (dragging ? " card-arrastando" : "")
     + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
@@ -52,7 +54,19 @@ export function Card({ lead, abrir, zapDireto, onDragStart, onDragOver, onDrop, 
         </button>
         <button className="icone-btn" title="Etiquetas" onClick={() => abrir("tags")}><Ico n="tag" /></button>
       </div>
-      <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
+      <div className="card-rodape">
+        <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
+        {/* só aparece depois que existe pelo menos um envio — antes disso não há o que responder */}
+        {enviadas > 0 && alternarResposta && (
+          <button
+            className={"toggle-resposta" + (respondeu ? " ligado" : "")}
+            onClick={() => alternarResposta(lead)}
+            title={respondeu ? "Cliente respondeu — clique para desmarcar" : "Sem resposta — clique para marcar que respondeu"}>
+            <span className="toggle-trilho"><span className="toggle-bolinha" /></span>
+            <span className="toggle-texto">{respondeu ? "respondeu" : "sem resposta"}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

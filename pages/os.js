@@ -220,6 +220,13 @@ export default function OsPage() {
       lembretes: [...(lead.lembretes || []), { id: "disp" + Date.now(), data: h, tipo, varIdx: 0, enviado: true, enviadoEm: h }],
     });
   }
+  // liga/desliga "respondeu" no card da OS — grava no mini-CRM da OS (os_leads)
+  async function alternarRespostaOs(osId, o) {
+    const lead = pseudoLeadDe(osId, o);
+    const jaTem = (lead.respostas || []).length > 0;
+    await salvarOsLead(osId, { ...lead, respostas: jaTem ? [] : [{ data: hoje() }] });
+  }
+
   // agenda D+7 (tudo funcionando?) e D+90 (revisão preventiva) no mini-CRM da OS
   async function ativarPosVenda(osId, o) {
     const lead = pseudoLeadDe(osId, o);
@@ -477,6 +484,7 @@ export default function OsPage() {
                       abrirOs={() => setOsDetalhe(o)}
                       promover={() => adicionarAoCrm(o)}
                       ativarPosVenda={() => ativarPosVenda(String(o.id), o)}
+                      alternarResposta={() => alternarRespostaOs(String(o.id), o)}
                       zapDireto={() => window.open(waLink(telefone), "_blank")} />
                   );
                 })}
@@ -525,7 +533,7 @@ export default function OsPage() {
 }
 
 // ---------- card da OS: seu próprio mini-CRM (obs/agenda/whatsapp/compras/etiquetas), no mesmo padrão do CRM geral ----------
-function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
+function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, alternarResposta, zapDireto, onDragStart, onDragOver, onDrop, onDragEnd, dragging, dropPos, pousou }) {
   const cliente = campo(o.data, "cliente") || "sem nome";
   const telefone = campo(o.data, "telefone");
   const equipamento = campo(o.data, "equipamento");
@@ -536,6 +544,8 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, 
   const pendentes = (osLead.lembretes || []).filter((l) => !l.enviado).length;
   const totalCompras = (osLead.compras || []).reduce((s, c) => s + (Number(c.valor) || 0), 0);
   const temPosVenda = (osLead.lembretes || []).some((l) => l.tipo === "POS7" || l.tipo === "POS90");
+  const enviadas = (osLead.lembretes || []).filter((l) => l.enviado).length;
+  const respondeu = (osLead.respostas || []).length > 0;
   const classe = "card"
     + (dragging ? " card-arrastando" : "")
     + (dropPos === "antes" ? " drop-antes" : dropPos === "depois" ? " drop-depois" : "")
@@ -556,7 +566,6 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, 
           <Ico n="clock" size={13} /> Ativar pós-venda
         </button>
       )}
-      <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
       <div className="icones">
         <button className="icone-btn" title="Observações" onClick={() => abrir("obs")}>
           <Ico n="fileText" />{(osLead.observacoes || []).length > 0 && <span className="mini-badge">{osLead.observacoes.length}</span>}
@@ -573,6 +582,19 @@ function CardOs({ o, osLead, leadCRM, abrir, abrirOs, promover, ativarPosVenda, 
           <Link href={`/?tel=${encodeURIComponent(telefone)}`} className="icone-btn" title="Já está no CRM geral — abrir lá"><Ico n="check" /></Link>
         ) : (
           <button className="icone-btn" title="Adicionar ao CRM geral" onClick={promover}><Ico n="plus" /></button>
+        )}
+      </div>
+      <div className="card-rodape">
+        <button className="btn-disparo" onClick={() => abrir("disparo")}><Ico n="send" size={14} /> DISPARO</button>
+        {/* só aparece depois que existe pelo menos um envio — antes disso não há o que responder */}
+        {enviadas > 0 && alternarResposta && (
+          <button
+            className={"toggle-resposta" + (respondeu ? " ligado" : "")}
+            onClick={alternarResposta}
+            title={respondeu ? "Cliente respondeu — clique para desmarcar" : "Sem resposta — clique para marcar que respondeu"}>
+            <span className="toggle-trilho"><span className="toggle-bolinha" /></span>
+            <span className="toggle-texto">{respondeu ? "respondeu" : "sem resposta"}</span>
+          </button>
         )}
       </div>
     </div>
