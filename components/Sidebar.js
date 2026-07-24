@@ -17,18 +17,10 @@ const ITENS = [
 const MES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const DOW_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
 
-// mini-calendário do mês atual, com pontinho nos dias que têm mensagem agendada ou aniversário —
-// liga/desliga pelo botão "Manter calendário lateral" na tela Calendário (fica visível em qualquer tela)
-function MiniCalendario() {
-  const [leads, setLeads] = useState([]);
-  const [listas, setListas] = useState([]);
-  const hoje0 = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  const ano = hoje0.getFullYear(), mes = hoje0.getMonth(); // 0-11
-
-  useEffect(() => {
-    fetch("/api/leads").then((r) => r.json()).then((j) => setLeads(Array.isArray(j) ? j : [])).catch(() => {});
-    fetch("/api/lists?todos=1").then((r) => r.json()).then((j) => setListas(Array.isArray(j) ? j : [])).catch(() => {});
-  }, []);
+// um mês do mini-calendário lateral: pontinho nos dias com mensagem agendada/aniversário e
+// marca-texto nos dias dentro do intervalo de prazo das listas (só listas com prazo E cliente)
+function MesMini({ ano, mes, leads, listas, hoje0 }) {
+  const ehMesAtual = hoje0.getFullYear() === ano && hoje0.getMonth() === mes;
 
   const diasComEvento = useMemo(() => {
     const set = new Set();
@@ -44,8 +36,6 @@ function MiniCalendario() {
     return set;
   }, [leads, ano, mes]);
 
-  // marca-texto do prazo das listas (só listas com prazo E cliente) — dias do mês exibido que
-  // caem no intervalo hoje→prazo
   const diasPrazo = useMemo(() => {
     const set = new Set();
     const h = hoje();
@@ -67,8 +57,7 @@ function MiniCalendario() {
   }, [listas, leads, ano, mes]);
 
   const celulas = useMemo(() => {
-    const primeiro = new Date(ano, mes, 1);
-    const inicioSemana = primeiro.getDay();
+    const inicioSemana = new Date(ano, mes, 1).getDay();
     const totalDias = new Date(ano, mes + 1, 0).getDate();
     const arr = [];
     for (let i = 0; i < inicioSemana; i++) arr.push(null);
@@ -77,17 +66,44 @@ function MiniCalendario() {
   }, [ano, mes]);
 
   return (
-    <div className="mini-calendario">
+    <div className="mini-cal-mes">
       <Link href="/calendario" className="mini-cal-titulo">{MES_ABREV[mes]} {ano}</Link>
       <div className="mini-cal-grid">
         {DOW_LETRA.map((d, i) => <span key={i} className="mini-cal-dow">{d}</span>)}
         {celulas.map((d, i) => (
-          <Link key={i} href="/calendario" className={"mini-cal-dia" + (d === hoje0.getDate() ? " hoje" : "") + (!d ? " vazio" : "") + (d && diasPrazo.has(d) ? " prazo" : "")}>
+          <Link key={i} href="/calendario" className={"mini-cal-dia" + (ehMesAtual && d === hoje0.getDate() ? " hoje" : "") + (!d ? " vazio" : "") + (d && diasPrazo.has(d) ? " prazo" : "")}>
             {d || ""}
             {d && diasComEvento.has(d) && <span className="mini-cal-dot" />}
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+// mini-calendário lateral: mostra o mês atual e o próximo mês logo abaixo —
+// liga/desliga pelo botão "Manter calendário lateral" na tela Calendário
+function MiniCalendario() {
+  const [leads, setLeads] = useState([]);
+  const [listas, setListas] = useState([]);
+  const hoje0 = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+
+  useEffect(() => {
+    fetch("/api/leads").then((r) => r.json()).then((j) => setLeads(Array.isArray(j) ? j : [])).catch(() => {});
+    fetch("/api/lists?todos=1").then((r) => r.json()).then((j) => setListas(Array.isArray(j) ? j : [])).catch(() => {});
+  }, []);
+
+  const meses = useMemo(() => {
+    const a = hoje0.getFullYear(), m = hoje0.getMonth();
+    const prox = m === 11 ? { ano: a + 1, mes: 0 } : { ano: a, mes: m + 1 };
+    return [{ ano: a, mes: m }, prox];
+  }, [hoje0]);
+
+  return (
+    <div className="mini-calendario">
+      {meses.map((mm) => (
+        <MesMini key={mm.ano + "-" + mm.mes} ano={mm.ano} mes={mm.mes} leads={leads} listas={listas} hoje0={hoje0} />
+      ))}
     </div>
   );
 }
