@@ -464,7 +464,7 @@ export default function CrmBoard({ board, titulo, principal }) {
               <span style={{ marginLeft: "auto", fontSize: 12 }}>{painelAberto ? "▲" : "▼"}</span>
             </div>
             {painelAberto && (
-              <div>
+              <div className="ph-corpo">
                 {pendencias.length === 0 && <div className="ph-item vazio">Nenhuma mensagem pendente — tudo em dia!</div>}
                 {pendencias.map((p, i) => {
                   if (p.os) {
