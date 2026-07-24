@@ -14,6 +14,7 @@
   --fundo: #f1f5f4;
   --card: #ffffff;
   --lista-bg: #e9eeec;
+  --lista-head-bg: #d7e0dd;
   --texto: #1f2937;
   --cinza: #6b7280;
   --borda: #e5e7eb;
@@ -38,6 +39,7 @@
   --fundo: #121316;
   --card: #1d1f24;
   --lista-bg: #191b1f;
+  --lista-head-bg: #26292f;
   --texto: #e8e8e5;
   --cinza: #9aa1ab;
   --borda: #2d3038;
@@ -167,12 +169,11 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .ph-msg { font-size: 12.5px; color: var(--cinza); width: 100%; line-height: 1.5; }
 
 /* ---------- board ----------
-   Cada lista tem altura própria (limitada ao que sobra da tela) e rola por dentro,
-   independente das outras — assim, mesmo com 50 clientes numa lista, as listas vizinhas
-   continuam inteiras e visíveis ao lado, cabeçalho incluso, inclusive durante o arraste. */
-.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: stretch; height: calc(100vh - 250px); min-height: 420px; transition: height .2s ease; }
-/* modo expandido: recolhe painéis extras e a sidebar (via JS), sobra bem mais altura útil */
-.board.board-expandido { height: calc(100vh - 130px); }
+   As listas crescem naturalmente pra baixo (a página toda rola). O cabeçalho de cada
+   lista (.lista-head) fica "grudado" (sticky) no topo do quadro com fundo mais escuro/opaco
+   enquanto o usuário desce a página, assim dá pra sempre ver os nomes das listas vizinhas
+   e mover um cliente do fim de uma lista pra outra sem perder a referência. */
+.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: flex-start; }
 .board::-webkit-scrollbar { height: 10px; }
 .board::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
 .lista {
@@ -182,11 +183,13 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   display: flex; flex-direction: column;
 }
 .lista.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-suave); }
-.lista-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; cursor: grab; transition: opacity .15s ease; flex-shrink: 0; }
+.lista-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px 10px; cursor: grab; transition: opacity .15s ease;
+  flex-shrink: 0; position: sticky; top: 0; z-index: 5; margin: -8px -8px 4px; border-radius: 10px;
+  background: var(--lista-head-bg); backdrop-filter: blur(3px); box-shadow: 0 2px 6px rgba(0,0,0,.12);
+}
 .lista-head:active { cursor: grabbing; }
-.lista-corpo { flex: 1; overflow-y: auto; min-height: 0; padding-right: 2px; }
-.lista-corpo::-webkit-scrollbar { width: 8px; }
-.lista-corpo::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
+.lista-corpo { padding-right: 2px; }
 .lista.lista-arrastando { opacity: .45; transform: scale(.98); box-shadow: var(--sombra-alta); }
 .lista.drop-antes::before, .lista.drop-depois::after {
   content: ""; position: absolute; top: 8px; bottom: 8px; width: 4px; border-radius: 4px;
@@ -363,8 +366,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   .btn { padding: 8px 11px; font-size: 12px; }
   .btn .btn-rotulo { display: none; }
   .painel-hoje { margin: 12px 12px 0; }
-  .board { padding: 12px 12px 20px; gap: 10px; height: calc(100vh - 300px); min-height: 360px; }
-  .board.board-expandido { height: calc(100vh - 170px); }
+  .board { padding: 12px 12px 20px; gap: 10px; }
   .lista { min-width: 272px; max-width: 272px; }
 }
 
@@ -433,9 +435,12 @@ button.sidebar-item {
 .mini-cal-dia:hover { background: var(--accent-suave); }
 .mini-cal-dia.vazio { pointer-events: none; }
 .mini-cal-dia.hoje { background: var(--accent); color: var(--accent-texto); font-weight: 900; }
-.mini-cal-dot { position: absolute; bottom: 1px; width: 3px; height: 3px; border-radius: 50%; background: var(--accent-forte); }
-[data-theme="dark"] .mini-cal-dot { background: var(--accent); }
-.mini-cal-dia.hoje .mini-cal-dot { background: var(--accent-texto); }
+.mini-cal-dot {
+  position: absolute; bottom: 0px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-forte);
+  box-shadow: 0 0 4px 1px var(--accent-forte); animation: led-pisca 1.3s ease-in-out infinite;
+}
+[data-theme="dark"] .mini-cal-dot { background: var(--accent); box-shadow: 0 0 4px 1px var(--accent); }
+.mini-cal-dia.hoje .mini-cal-dot { background: var(--accent-texto); box-shadow: 0 0 4px 1px var(--accent-texto); }
 @media (max-width: 768px) {
   .sidebar { position: fixed; z-index: 40; height: 100vh; width: 64px; }
   .sidebar:not(.colapsada) { width: 216px; box-shadow: var(--sombra-alta); }
@@ -485,8 +490,11 @@ button.sidebar-item {
 .card-estrategia.drop-depois::after { right: -9px; }
 .card-estrategia-topo { display: flex; align-items: center; justify-content: space-between; }
 .card-estrategia-topo .arrasta-lista { opacity: .5; }
-.card-estrategia-topo .x { background: none; border: none; color: var(--cinza); border-radius: 6px; padding: 2px 6px; transition: color .15s ease; }
-.card-estrategia-topo .x:hover { color: var(--vermelho); }
+.card-estrategia-topo .x {
+  background: var(--vermelho-suave); border: none; color: var(--vermelho); border-radius: 6px;
+  padding: 3px 7px; transition: background .15s ease, color .15s ease;
+}
+.card-estrategia-topo .x:hover { background: var(--vermelho); color: #fff; }
 .card-estrategia-nova {
   background: transparent; border: 2px dashed var(--borda); border-radius: 14px; padding: 18px;
   display: flex; flex-direction: column; gap: 10px; min-height: 130px; align-items: flex-start;
@@ -673,12 +681,17 @@ button.sidebar-item {
 .cal-dia.fora-do-mes { opacity: .3; pointer-events: none; }
 .cal-dia.hoje { border-color: var(--accent); font-weight: 900; }
 .cal-dia.selecionado { background: var(--accent); color: var(--accent-texto); }
-.cal-dots { display: flex; gap: 3px; }
-.cal-dot { width: 6px; height: 6px; border-radius: 50%; }
-.cal-dot.msg { background: var(--accent); }
-.cal-dia.selecionado .cal-dot.msg { background: var(--accent-texto); }
-.cal-dot.niver { background: #f59e0b; }
-.cal-dot.atrasado { background: var(--vermelho); }
+.cal-dots { display: flex; gap: 5px; }
+/* pontinho tipo LED: maior e piscando, pra chamar atenção pros dias com algo agendado */
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; animation: led-pisca 1.3s ease-in-out infinite; }
+.cal-dot.msg { background: var(--accent); box-shadow: 0 0 5px 1px var(--accent); }
+.cal-dia.selecionado .cal-dot.msg { background: var(--accent-texto); box-shadow: 0 0 5px 1px var(--accent-texto); }
+.cal-dot.niver { background: #f59e0b; box-shadow: 0 0 5px 1px #f59e0b; }
+.cal-dot.atrasado { background: var(--vermelho); box-shadow: 0 0 6px 1px var(--vermelho); }
+@keyframes led-pisca {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .35; transform: scale(.8); }
+}
 .cal-side { display: flex; flex-direction: column; gap: 14px; }
 .cal-side h3 { font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
 .cal-evento {

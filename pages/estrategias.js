@@ -33,9 +33,10 @@ export default function EstrategiasPage() {
   }
 
   async function excluirEstrategia(m) {
-    if (!confirm(`Excluir a estratégia "${m.titulo}"? Os textos cadastrados nela também somem.`)) return;
+    if (!confirm(`Excluir a estratégia "${m.titulo}"? Os textos cadastrados nela também somem.`)) return false;
     const r = await excluir(m.tipo);
-    if (!r.ok) alert(r.error || "Não consegui excluir.");
+    if (!r.ok) { alert(r.error || "Não consegui excluir."); return false; }
+    return true;
   }
 
   return (
@@ -100,6 +101,7 @@ export default function EstrategiasPage() {
             variacoesAtuais={templates[aberta]?.variacoes || []}
             salvar={salvar}
             voltar={() => setAberta(null)}
+            excluir={async (m) => { if (await excluirEstrategia(m)) setAberta(null); }}
           />
         )}
       </div>
@@ -148,7 +150,7 @@ function ModalCriarEstrategia({ criar, fechar, abrirEditor }) {
   );
 }
 
-function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar }) {
+function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar, excluir }) {
   const [variacoes, setVariacoes] = useState(variacoesAtuais.length ? variacoesAtuais : [""]);
   const [salvando, setSalvando] = useState(false);
   const nomeExemplo = "João";
@@ -209,7 +211,17 @@ function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar }) {
         <button className="btn2 primario" disabled={salvando} onClick={onSalvar}>
           <Ico n="save" size={15} /> {salvando ? "Salvando…" : "Salvar estratégia"}
         </button>
+        {meta.custom && (
+          <button className="btn2 perigo" onClick={() => excluir(meta)}>
+            <Ico n="trash" size={14} /> Excluir estratégia
+          </button>
+        )}
       </div>
+      {!meta.custom && (
+        <div className="vazio" style={{ marginTop: 10 }}>
+          Estratégias padrão do sistema não podem ser excluídas (são usadas nos envios automáticos). Só dá pra excluir estratégias criadas por você.
+        </div>
+      )}
     </div>
   );
 }
