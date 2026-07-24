@@ -34,17 +34,6 @@ export default async function handler(req, res) {
       const count = await col.countDocuments(filtroT);
       const tag = { id, nome, cor: cor || "#0d9488", ordem: count, tenant: sessao.tenant };
       await col.insertOne(tag);
-      // cria também a coluna correspondente no board de Etiquetas, se ele já existir
-      const listsCol = db.collection("lists");
-      const filtroBoard = { $and: [{ board: "tags" }, filtroT] };
-      const existeBoard = await listsCol.countDocuments(filtroBoard);
-      if (existeBoard > 0) {
-        const maxOrdem = await listsCol.find(filtroBoard).sort({ ordem: -1 }).limit(1).toArray();
-        await listsCol.insertOne({
-          key: "tag_" + id, nome: nome.toUpperCase(), ordem: (maxOrdem[0]?.ordem ?? 0) + 1,
-          fixa: false, board: "tags", cor: tag.cor, tagId: id, tenant: sessao.tenant,
-        });
-      }
       return res.status(200).json({ ok: true, id });
     }
 
@@ -56,19 +45,17 @@ export default async function handler(req, res) {
       if (cor !== undefined) set.cor = cor;
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
       await col.updateOne({ $and: [{ id }, filtroT] }, { $set: set });
-      // reflete o novo nome/cor na coluna correspondente do board de Etiquetas
-      const setLista = {};
-      if (nome !== undefined) setLista.nome = nome.toUpperCase();
-      if (cor !== undefined) setLista.cor = cor;
-      if (Object.keys(setLista).length > 0) {
-        await db.collection("lists").updateOne({ $and: [{ board: "tags", tagId: id }, filtroT] }, { $set: setLista });
-      }
       return res.status(200).json({ ok: true });
     }
 
     if (req.method === "DELETE") {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: "faltou id" });
+      // bloqueia a exclusão se algum cliente ainda estiver com essa etiqueta marcada
+      const emUso = await db.collection("leads").countDocuments({ $and: [{ tags: id }, filtroT] });
+      if (emUso > 0) {
+        return res.status(400).json({ error: `Essa etiqueta está em uso em ${emUso} cliente${emUso === 1 ? "" : "s"}. Remova a etiqueta desses clientes antes de excluir.` });
+      }
       await col.deleteOne({ $and: [{ id }, filtroT] });
       return res.status(200).json({ ok: true });
     }

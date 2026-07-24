@@ -75,8 +75,9 @@ function EditorEtiquetas() {
     else alert("Não consegui criar a etiqueta — tenta de novo.");
   }
   async function apagar(t) {
-    if (!confirm(`Excluir a etiqueta "${t.nome}"? Ela some do sistema, mas clientes que já tinham essa etiqueta não são alterados.`)) return;
-    await excluir(t.id);
+    if (!confirm(`Excluir a etiqueta "${t.nome}"?`)) return;
+    const r = await excluir(t.id);
+    if (!r.ok) alert(r.error || "Não consegui excluir a etiqueta.");
   }
 
   if (!carregado) return <div className="vazio">Carregando…</div>;
