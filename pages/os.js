@@ -6,6 +6,7 @@ import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { STRATEGY_META } from "../lib/messages";
 import { waLink, normalizaFone, primeiroNome, hoje, addDias } from "../lib/crmHelpers";
+import { useModoExpandido } from "../lib/useModoExpandido";
 
 const STATUS_ENTREGUE = ["entregue", "encerrado", "encerrada", "finalizada", "concluida", "concluída", "pronta"];
 function foiEntregue(status) {
@@ -132,6 +133,7 @@ export default function OsPage() {
   const [pousouCard, setPousouCard] = useState(null);
   const [arrastandoLista, setArrastandoLista] = useState(null);
   const [dropLista, setDropLista] = useState(null); // { key, pos }
+  const [expandido, alternarExpandido] = useModoExpandido();
 
   function marcarPouso(id) {
     setPousouCard(id);
@@ -336,6 +338,9 @@ export default function OsPage() {
   const acoesTopbar = !estado.carregando && estado.configurado && !estado.erro && (
     <>
       <input type="text" placeholder="Buscar cliente, telefone, CPF ou equipamento…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+      <button className="btn" onClick={alternarExpandido} title={expandido ? "Voltar ao normal" : "Expandir quadro (mais espaço pras listas)"}>
+        <Ico n={expandido ? "recolher" : "expandir"} size={15} /> <span className="btn-rotulo">{expandido ? "Recolher" : "Expandir"}</span>
+      </button>
       <div className="dropdown-wrap">
         <button className="btn" onClick={() => setMenuOrdenar((v) => !v)}><Ico n="sort" size={15} /> Organizar</button>
         {menuOrdenar && (
@@ -366,10 +371,12 @@ export default function OsPage() {
 
   return (
     <Layout titulo="OS" acoes={acoesTopbar}>
+      {!expandido && (
       <div className="pagina" style={{ paddingBottom: 0 }}>
         <div className="pagina-titulo"><Ico n="wrench" size={20} /> Ordens de Serviço</div>
         <div className="pagina-sub">Cada OS já é um mini-CRM próprio (observações, agenda, compras, etiquetas) — use o ícone "+" no card pra também adicionar esse cliente ao CRM geral, se quiser. Listas abaixo são só sua organização, o PDV nunca é alterado.</div>
       </div>
+      )}
 
       {estado.carregando && <div className="pagina">Carregando…</div>}
 

@@ -103,18 +103,18 @@ export default function MetricasPage() {
 
             <h3 className="metrica-secao">Últimas 8 semanas — enviadas × respondidas</h3>
             <div className="grafico-box">
-              <svg viewBox="0 0 640 190" style={{ width: "100%", height: "auto" }} role="img" aria-label="Gráfico de envios e respostas por semana">
+              <svg viewBox="0 0 640 160" style={{ width: "100%", height: "auto" }} role="img" aria-label="Gráfico de envios e respostas por semana">
                 {semanas.map((s, i) => {
                   const x = 20 + i * 78;
-                  const hEnv = Math.round((s.envios / maxBarra) * 130);
-                  const hResp = Math.round((s.respostas / maxBarra) * 130);
+                  const hEnv = Math.round((s.envios / maxBarra) * 105);
+                  const hResp = Math.round((s.respostas / maxBarra) * 105);
                   return (
                     <g key={i}>
-                      <rect x={x} y={150 - hEnv} width={26} height={hEnv || 1} rx={4} fill="var(--accent)" opacity={0.9} />
-                      <rect x={x + 30} y={150 - hResp} width={26} height={hResp || 1} rx={4} fill="var(--zap)" opacity={0.9} />
-                      {s.envios > 0 && <text x={x + 13} y={144 - hEnv} textAnchor="middle" fontSize="11" fontWeight="800" fill="var(--texto)">{s.envios}</text>}
-                      {s.respostas > 0 && <text x={x + 43} y={144 - hResp} textAnchor="middle" fontSize="11" fontWeight="800" fill="var(--texto)">{s.respostas}</text>}
-                      <text x={x + 28} y={172} textAnchor="middle" fontSize="10" fill="var(--cinza)">{fmtBR(s.fim).slice(0, 5)}</text>
+                      <rect x={x} y={125 - hEnv} width={26} height={hEnv || 1} rx={4} fill="var(--accent)" opacity={0.9} />
+                      <rect x={x + 30} y={125 - hResp} width={26} height={hResp || 1} rx={4} fill="var(--zap)" opacity={0.9} />
+                      {s.envios > 0 && <text x={x + 13} y={119 - hEnv} textAnchor="middle" fontSize="11" fontWeight="800" fill="var(--texto)">{s.envios}</text>}
+                      {s.respostas > 0 && <text x={x + 43} y={119 - hResp} textAnchor="middle" fontSize="11" fontWeight="800" fill="var(--texto)">{s.respostas}</text>}
+                      <text x={x + 28} y={145} textAnchor="middle" fontSize="10" fill="var(--cinza)">{fmtBR(s.fim).slice(0, 5)}</text>
                     </g>
                   );
                 })}

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ico } from "../lib/icons";
+import { partesNascimento } from "../lib/crmHelpers";
 
 const ITENS = [
   { href: "/", rota: "/", label: "CRM", icone: "layoutKanban" },
@@ -13,9 +14,64 @@ const ITENS = [
   { href: "/calendario", rota: "/calendario", label: "Calendário", icone: "calendar" },
 ];
 
+const MES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const DOW_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+// mini-calendário do mês atual, com pontinho nos dias que têm mensagem agendada ou aniversário —
+// liga/desliga pelo botão "Manter calendário lateral" na tela Calendário (fica visível em qualquer tela)
+function MiniCalendario() {
+  const [leads, setLeads] = useState([]);
+  const hoje0 = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const ano = hoje0.getFullYear(), mes = hoje0.getMonth(); // 0-11
+
+  useEffect(() => {
+    fetch("/api/leads").then((r) => r.json()).then((j) => setLeads(Array.isArray(j) ? j : [])).catch(() => {});
+  }, []);
+
+  const diasComEvento = useMemo(() => {
+    const set = new Set();
+    for (const lead of leads) {
+      for (const lem of lead.lembretes || []) {
+        if (lem.enviado || lem.recorrente || !lem.data) continue;
+        const [y, m, d] = lem.data.split("-").map(Number);
+        if (y === ano && m - 1 === mes) set.add(d);
+      }
+      const p = partesNascimento(lead);
+      if (p && p.mes - 1 === mes) set.add(p.dia);
+    }
+    return set;
+  }, [leads, ano, mes]);
+
+  const celulas = useMemo(() => {
+    const primeiro = new Date(ano, mes, 1);
+    const inicioSemana = primeiro.getDay();
+    const totalDias = new Date(ano, mes + 1, 0).getDate();
+    const arr = [];
+    for (let i = 0; i < inicioSemana; i++) arr.push(null);
+    for (let d = 1; d <= totalDias; d++) arr.push(d);
+    return arr;
+  }, [ano, mes]);
+
+  return (
+    <div className="mini-calendario">
+      <Link href="/calendario" className="mini-cal-titulo">{MES_ABREV[mes]} {ano}</Link>
+      <div className="mini-cal-grid">
+        {DOW_LETRA.map((d, i) => <span key={i} className="mini-cal-dow">{d}</span>)}
+        {celulas.map((d, i) => (
+          <Link key={i} href="/calendario" className={"mini-cal-dia" + (d === hoje0.getDate() ? " hoje" : "") + (!d ? " vazio" : "")}>
+            {d || ""}
+            {d && diasComEvento.has(d) && <span className="mini-cal-dot" />}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Sidebar({ colapsada, alternar, sessao }) {
   const router = useRouter();
   const [quadros, setQuadros] = useState([]);
+  const [miniCalAtivo, setMiniCalAtivo] = useState(false);
   // OS (integração PDV) só existe pra conta INFOCENTRO
   const itens = ITENS.filter((it) => !it.soInfocentro || !sessao || sessao.tenant === "INFOCENTRO");
 
@@ -29,6 +85,14 @@ export default function Sidebar({ colapsada, alternar, sessao }) {
   useEffect(() => { if (sessao?.tenant) carregarQuadros(); }, [sessao?.tenant]);
   // se um novo quadro for criado em outra tela (ex: excluído lá), a sidebar recarrega ao trocar de rota
   useEffect(() => { if (sessao?.tenant) carregarQuadros(); }, [router.pathname]);
+
+  // mini-calendário lateral: lê a preferência salva e escuta o botão da tela Calendário
+  useEffect(() => {
+    try { setMiniCalAtivo(localStorage.getItem("sidebar-mini-calendario") === "1"); } catch (e) {}
+    function onAlternar(e) { setMiniCalAtivo(!!e.detail); }
+    window.addEventListener("crm-mini-calendario", onAlternar);
+    return () => window.removeEventListener("crm-mini-calendario", onAlternar);
+  }, []);
 
   async function criarCrm() {
     const nome = prompt("Nome do novo CRM (ex: Revenda, Corporativo, Peças):");
@@ -49,10 +113,13 @@ export default function Sidebar({ colapsada, alternar, sessao }) {
         {itens.map((it) => {
           const ativo = router.pathname === it.rota;
           return (
-            <Link key={it.href} href={it.href} className={"sidebar-item" + (ativo ? " ativo" : "")} title={it.label}>
-              <Ico n={it.icone} size={19} />
-              <span className="sidebar-label">{it.label}</span>
-            </Link>
+            <div key={it.href}>
+              <Link href={it.href} className={"sidebar-item" + (ativo ? " ativo" : "")} title={it.label}>
+                <Ico n={it.icone} size={19} />
+                <span className="sidebar-label">{it.label}</span>
+              </Link>
+              {it.label === "Calendário" && miniCalAtivo && !colapsada && <MiniCalendario />}
+            </div>
           );
         })}
         {quadros.map((q) => {

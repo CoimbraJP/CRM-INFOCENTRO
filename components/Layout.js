@@ -19,6 +19,18 @@ export default function Layout({ children, titulo, acoes }) {
     } catch (e) {}
   }, []);
 
+  // o "modo expandido" das telas de quadro (botão de expandir) pede pra recolher/reabrir a
+  // barra lateral, pra ganhar espaço dos lados — disparado via evento pra não precisar de contexto.
+  useEffect(() => {
+    function onForcarSidebar(e) {
+      const novo = !!e.detail;
+      setColapsada(novo);
+      try { localStorage.setItem("sidebar-colapsada", novo ? "1" : "0"); } catch (err) {}
+    }
+    window.addEventListener("crm-forcar-sidebar", onForcarSidebar);
+    return () => window.removeEventListener("crm-forcar-sidebar", onForcarSidebar);
+  }, []);
+
   // sessão expirada/deslogado -> manda pro login
   useEffect(() => {
     fetch("/api/auth").then((r) => r.json().then((j) => {
@@ -58,16 +70,16 @@ export default function Layout({ children, titulo, acoes }) {
       <Sidebar colapsada={colapsada} alternar={alternarSidebar} sessao={sessao} />
       <div className="app-main">
         <div className="topbar">
-          {logo ? (
-            <img src={logo} alt={nomeConta || sessao?.usuario || "Logo"} className="logo" />
-          ) : sessao?.tenant === "INFOCENTRO" ? (
-            <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />
-          ) : (
-            <div className="logo-simples">
-              <Ico n="layoutKanban" size={22} />
-              <span>{nomeConta || sessao?.usuario || "CRM"}</span>
-            </div>
-          )}
+          <div className="topbar-marca">
+            {logo ? (
+              <img src={logo} alt={nomeConta || sessao?.usuario || "Logo"} className="logo" />
+            ) : sessao?.tenant === "INFOCENTRO" ? (
+              <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />
+            ) : (
+              <Ico n="layoutKanban" size={26} />
+            )}
+            {nomeConta && <span className="topbar-nome">{nomeConta}</span>}
+          </div>
           <span className="espaco" />
           {acoes && <div className="topbar-acoes">{acoes}</div>}
           <button className="btn-tema" onClick={alternarTema} title={temaEscuro ? "Mudar para tema claro" : "Mudar para tema escuro"} aria-label="Alternar tema">

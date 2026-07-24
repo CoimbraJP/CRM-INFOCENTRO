@@ -199,8 +199,8 @@ function PainelLogo({ tenant }) {
       <h3 style={{ fontSize: 14, margin: "22px 0 6px" }}>Nome exibido</h3>
       <p style={{ fontSize: 12.5, color: "var(--cinza)", marginBottom: 10 }}>
         {ehInfocentro
-          ? "Não é obrigatório aqui — o logo padrão já tem o nome embutido na imagem. Só preencha se quiser sobrepor com um texto simples."
-          : "Não precisa criar uma imagem de logo: basta escrever o nome que você quer que apareça no topo, ao lado de um ícone simples."}
+          ? "Não é obrigatório aqui — o logo padrão já tem o nome embutido na imagem. Se preencher, este texto aparece do lado do logo, sem substituí-lo."
+          : "Aparece ao lado do logo, sempre que os dois estiverem preenchidos. Se não subir logo nenhum, aparece só este nome ao lado de um ícone simples."}
       </p>
       <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
         <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Revenda XPTO" style={{ flex: 1 }} />

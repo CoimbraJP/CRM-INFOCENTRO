@@ -79,9 +79,11 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   border-bottom: 2px solid var(--accent);
 }
 .topbar .logo { height: 44px; width: auto; display: block; }
-/* contas sem logo próprio (fora INFOCENTRO) mostram um ícone simples + o nome que definirem */
-.topbar .logo-simples { display: flex; align-items: center; gap: 10px; color: var(--topbar-texto); font-weight: 800; font-size: 16px; }
-.topbar .logo-simples .ico { flex-shrink: 0; }
+/* logo (imagem própria, padrão da INFO Centro, ou ícone simples se não tiver nenhum) + nome
+   exibido — os dois aparecem juntos sempre que a conta tiver um nome definido. */
+.topbar-marca { display: flex; align-items: center; gap: 10px; color: var(--topbar-texto); flex-shrink: 0; }
+.topbar-marca .ico { flex-shrink: 0; }
+.topbar-nome { font-weight: 800; font-size: 16px; white-space: nowrap; }
 .topbar .espaco { margin-right: auto; }
 .topbar-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .topbar input[type="text"] {
@@ -168,7 +170,9 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
    Cada lista tem altura própria (limitada ao que sobra da tela) e rola por dentro,
    independente das outras — assim, mesmo com 50 clientes numa lista, as listas vizinhas
    continuam inteiras e visíveis ao lado, cabeçalho incluso, inclusive durante o arraste. */
-.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: stretch; height: calc(100vh - 250px); min-height: 420px; }
+.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: stretch; height: calc(100vh - 250px); min-height: 420px; transition: height .2s ease; }
+/* modo expandido: recolhe painéis extras e a sidebar (via JS), sobra bem mais altura útil */
+.board.board-expandido { height: calc(100vh - 130px); }
 .board::-webkit-scrollbar { height: 10px; }
 .board::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
 .lista {
@@ -360,6 +364,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   .btn .btn-rotulo { display: none; }
   .painel-hoje { margin: 12px 12px 0; }
   .board { padding: 12px 12px 20px; gap: 10px; height: calc(100vh - 300px); min-height: 360px; }
+  .board.board-expandido { height: calc(100vh - 170px); }
   .lista { min-width: 272px; max-width: 272px; }
 }
 
@@ -372,6 +377,10 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .sidebar {
   width: 216px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--borda);
   display: flex; flex-direction: column; transition: width .2s ease;
+  /* fixa a altura no viewport (em vez de esticar junto com o conteúdo da página) — sem isso,
+     em telas com conteúdo alto (Calendário, Métricas) o rodapé (nome/Criar CRM/Configurações)
+     era empurrado pra baixo do que dava pra ver. */
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden;
 }
 .sidebar.colapsada { width: 64px; }
 .sidebar-toggle {
@@ -405,6 +414,28 @@ button.sidebar-item {
 [data-theme="dark"] .sidebar-item.ativo { color: var(--accent); }
 .sidebar.colapsada .sidebar-label { display: none; }
 .sidebar.colapsada .sidebar-item { justify-content: center; padding: 12px; }
+
+/* mini-calendário fixo na sidebar (liga pelo botão "Manter calendário lateral" em Calendário) */
+.mini-calendario { padding: 2px 18px 14px; }
+.mini-cal-titulo {
+  display: block; font-size: 11px; font-weight: 800; color: var(--cinza); text-transform: capitalize;
+  margin-bottom: 6px; text-decoration: none;
+}
+.mini-cal-titulo:hover { color: var(--accent-forte); }
+[data-theme="dark"] .mini-cal-titulo:hover { color: var(--accent); }
+.mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mini-cal-dow { text-align: center; font-size: 9px; font-weight: 800; color: var(--cinza); padding-bottom: 2px; }
+.mini-cal-dia {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative;
+  font-size: 10px; font-weight: 700; color: var(--texto); text-decoration: none; border-radius: 5px;
+  transition: background .15s ease;
+}
+.mini-cal-dia:hover { background: var(--accent-suave); }
+.mini-cal-dia.vazio { pointer-events: none; }
+.mini-cal-dia.hoje { background: var(--accent); color: var(--accent-texto); font-weight: 900; }
+.mini-cal-dot { position: absolute; bottom: 1px; width: 3px; height: 3px; border-radius: 50%; background: var(--accent-forte); }
+[data-theme="dark"] .mini-cal-dot { background: var(--accent); }
+.mini-cal-dia.hoje .mini-cal-dot { background: var(--accent-texto); }
 @media (max-width: 768px) {
   .sidebar { position: fixed; z-index: 40; height: 100vh; width: 64px; }
   .sidebar:not(.colapsada) { width: 216px; box-shadow: var(--sombra-alta); }
@@ -418,9 +449,9 @@ button.sidebar-item {
   background: var(--card); color: var(--texto);
 }
 .toolbar .espaco { flex: 1; }
-.pagina { padding: 20px; }
+.pagina { padding: 18px 20px; }
 .pagina-titulo { font-size: 20px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
-.pagina-sub { color: var(--cinza); font-size: 13.5px; margin-bottom: 18px; }
+.pagina-sub { color: var(--cinza); font-size: 13.5px; margin-bottom: 12px; }
 
 /* Estratégias */
 .grid-estrategias { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
@@ -498,23 +529,23 @@ button.sidebar-item {
 .info-linha b { color: var(--texto); }
 
 /* ---------- métricas ---------- */
-.grid-metricas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.grid-metricas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 6px; }
 .card-metrica {
-  background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px 18px;
-  display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra);
+  background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 13px 16px;
+  display: flex; flex-direction: column; gap: 3px; box-shadow: var(--sombra);
 }
 .metrica-rotulo { font-size: 12px; font-weight: 800; color: var(--cinza); display: flex; align-items: center; gap: 6px; letter-spacing: .3px; }
-.metrica-num { font-size: 30px; font-weight: 800; color: var(--accent-forte); line-height: 1.2; }
+.metrica-num { font-size: 26px; font-weight: 800; color: var(--accent-forte); line-height: 1.2; }
 [data-theme="dark"] .metrica-num { color: var(--accent); }
 .metrica-sub { font-size: 12px; color: var(--cinza); }
-.metrica-secao { font-size: 14px; font-weight: 800; margin: 22px 0 10px; }
-.grafico-box { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px; box-shadow: var(--sombra); }
+.metrica-secao { font-size: 14px; font-weight: 800; margin: 16px 0 8px; }
+.grafico-box { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 12px 16px; box-shadow: var(--sombra); }
 .grafico-legenda { display: flex; gap: 18px; margin-top: 6px; font-size: 12px; color: var(--cinza); font-weight: 700; }
 .grafico-legenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .tabela-wrap { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; box-shadow: var(--sombra); overflow-x: auto; }
 .tabela-metricas { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.tabela-metricas th { text-align: left; padding: 12px 14px; font-size: 11.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--cinza); border-bottom: 1px solid var(--borda); }
-.tabela-metricas td { padding: 11px 14px; border-bottom: 1px solid var(--borda); }
+.tabela-metricas th { text-align: left; padding: 9px 14px; font-size: 11.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--cinza); border-bottom: 1px solid var(--borda); }
+.tabela-metricas td { padding: 8px 14px; border-bottom: 1px solid var(--borda); }
 .tabela-metricas tr:last-child td { border-bottom: none; }
 
 /* faixa de backup atrasado */
@@ -621,21 +652,21 @@ button.sidebar-item {
 .chip-quando.mes { background: var(--fundo); color: var(--cinza); border: 1px solid var(--borda); }
 
 /* Calendário */
-.calendario-wrap { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: flex-start; }
+.calendario-wrap { display: grid; grid-template-columns: minmax(0, 560px) 340px; gap: 18px; align-items: flex-start; }
 @media (max-width: 1000px) { .calendario-wrap { grid-template-columns: 1fr; } }
-.cal-card { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 16px; }
-.cal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.cal-header h2 { font-size: 19px; text-transform: capitalize; }
+.cal-card { background: var(--card); border: 1px solid var(--borda); border-radius: 14px; padding: 14px; }
+.cal-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cal-header h2 { font-size: 17px; text-transform: capitalize; }
 .cal-nav-btn {
-  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo);
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo);
   display: flex; align-items: center; justify-content: center; color: var(--texto);
 }
 .cal-nav-btn:hover { background: var(--accent-suave); color: var(--accent-forte); }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.cal-dow { text-align: center; font-size: 11px; font-weight: 800; color: var(--cinza); padding: 6px 0; }
+.cal-dow { text-align: center; font-size: 11px; font-weight: 800; color: var(--cinza); padding: 4px 0; }
 .cal-dia {
-  aspect-ratio: 1; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; cursor: pointer; font-weight: 700; font-size: 13px; border: 1px solid transparent; position: relative;
+  aspect-ratio: 1.5; border-radius: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; font-weight: 700; font-size: 12.5px; border: 1px solid transparent; position: relative;
   background: var(--fundo); transition: background .15s ease, border-color .15s ease;
 }
 .cal-dia:hover { border-color: var(--accent); }

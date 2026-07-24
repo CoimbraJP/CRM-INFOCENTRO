@@ -7,6 +7,7 @@ import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
 import { STRATEGY_META } from "../lib/messages";
 import { hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
+import { useModoExpandido } from "../lib/useModoExpandido";
 
 // por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
 // lista própria da estratégia — as demais (D5, D30, aniversário...) o usuário liga depois.
@@ -27,6 +28,7 @@ export default function CrmBoard({ board, titulo, principal }) {
   const { tags: TAGS } = useTags();
   const msgDoLembrete = msgDoLembreteFactory(render);
   const router = useRouter();
+  const [expandido, alternarExpandido] = useModoExpandido();
 
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
@@ -405,6 +407,9 @@ export default function CrmBoard({ board, titulo, principal }) {
   const acoesTopbar = !carregando && !erroConexao && (
     <>
       <input type="text" placeholder="Buscar nome, telefone, serviço ou etiqueta…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+      <button className="btn" onClick={alternarExpandido} title={expandido ? "Voltar ao normal" : "Expandir quadro (mais espaço pras listas)"}>
+        <Ico n={expandido ? "recolher" : "expandir"} size={15} /> <span className="btn-rotulo">{expandido ? "Recolher" : "Expandir"}</span>
+      </button>
       <button className="btn" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> <span className="btn-rotulo">Cliente</span></button>
       <button className="btn" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> <span className="btn-rotulo">Importar</span></button>
       <button className="btn destaque" onClick={exportar}><Ico n="download" size={15} /> <span className="btn-rotulo">Backup</span></button>
@@ -437,7 +442,7 @@ export default function CrmBoard({ board, titulo, principal }) {
       )}
       {!carregando && !erroConexao && (
         <>
-          {listasVencidas.length > 0 && (
+          {!expandido && listasVencidas.length > 0 && (
             <div className="faixa-prazo">
               <Ico n="alerta" size={16} />
               <span>
@@ -450,6 +455,7 @@ export default function CrmBoard({ board, titulo, principal }) {
               </span>
             </div>
           )}
+          {!expandido && (
           <div className="painel-hoje">
             <div className="ph-head" onClick={() => setPainelAberto(!painelAberto)}>
               <Ico n="inbox" /> Enviar hoje {pendencias.length > 0 && <span className="ph-badge">{pendencias.length}</span>}
@@ -511,8 +517,9 @@ export default function CrmBoard({ board, titulo, principal }) {
               </div>
             )}
           </div>
+          )}
 
-          <div className="board">
+          <div className={"board" + (expandido ? " board-expandido" : "")}>
             {lists.map((lista) => {
               const cards = leadsFiltrados.filter((l) => l.listId === lista.key)
                 .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));

@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { fmtBR, primeiroNome, waLink, partesNascimento } from "../lib/crmHelpers";
+import { useCalendarioLateral } from "../lib/useCalendarioLateral";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -19,6 +20,7 @@ export default function CalendarioPage() {
   const [ano, setAno] = useState(hoje0.getFullYear());
   const [mes, setMes] = useState(hoje0.getMonth()); // 0-11
   const [selecionado, setSelecionado] = useState(isoLocal(hoje0.getFullYear(), hoje0.getMonth(), hoje0.getDate()));
+  const [calendarioLateral, alternarCalendarioLateral] = useCalendarioLateral();
 
   useEffect(() => {
     fetch("/api/leads").then((r) => r.json()).then((j) => { setLeads(Array.isArray(j) ? j : []); setCarregando(false); });
@@ -86,8 +88,14 @@ export default function CalendarioPage() {
 
   const hojeIso = isoLocal(hoje0.getFullYear(), hoje0.getMonth(), hoje0.getDate());
 
+  const acoesTopbar = (
+    <button className="btn" onClick={alternarCalendarioLateral} title="Mostra um mini-calendário do mês atual na barra lateral, em qualquer tela">
+      <Ico n="calendar" size={15} /> <span className="btn-rotulo">{calendarioLateral ? "Calendário lateral: ON" : "Manter calendário lateral"}</span>
+    </button>
+  );
+
   return (
-    <Layout titulo="Calendário">
+    <Layout titulo="Calendário" acoes={acoesTopbar}>
       <div className="pagina">
         <div className="pagina-titulo"><Ico n="calendar" size={20} /> Calendário</div>
         <div className="pagina-sub">Pontos indicam mensagens agendadas e aniversários. Clique num dia pra ver os detalhes.</div>

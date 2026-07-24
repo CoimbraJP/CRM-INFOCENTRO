@@ -6,6 +6,7 @@ import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
 import { STRATEGY_META } from "../lib/messages";
 import { hoje, waLink, primeiroNome, fmtDinheiro } from "../lib/crmHelpers";
+import { useModoExpandido } from "../lib/useModoExpandido";
 
 // por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
 // lista própria da estratégia (no board do CRM) — as demais o usuário liga depois.
@@ -22,6 +23,7 @@ export default function EtiquetasPage() {
   const [modal, setModal] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const dragId = useRef(null);
+  const [expandido, alternarExpandido] = useModoExpandido();
 
   async function carregar() {
     const [r1, r2] = await Promise.all([fetch("/api/leads"), fetch("/api/lists?board=tags")]);
@@ -113,15 +115,20 @@ export default function EtiquetasPage() {
         <div style={{ padding: 40, textAlign: "center" }}>Carregando…</div>
       ) : (
         <>
+          {!expandido && (
           <div className="pagina" style={{ paddingBottom: 0 }}>
             <div className="pagina-titulo"><Ico n="tag" size={20} /> Etiquetas</div>
             <div className="pagina-sub">Quadro separado do CRM — arraste um cliente pra uma coluna e a etiqueta é aplicada automaticamente no card dele.</div>
           </div>
+          )}
           <div className="toolbar" style={{ paddingTop: 0 }}>
             <input type="text" placeholder="Buscar nome, telefone ou etiqueta…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <button className="btn" onClick={alternarExpandido} title={expandido ? "Voltar ao normal" : "Expandir quadro (mais espaço pras listas)"}>
+              <Ico n={expandido ? "recolher" : "expandir"} size={15} /> <span className="btn-rotulo">{expandido ? "Recolher" : "Expandir"}</span>
+            </button>
           </div>
 
-          <div className="board">
+          <div className={"board" + (expandido ? " board-expandido" : "")}>
             {lists.map((lista) => {
               const cards = leadsFiltrados.filter((l) => (l.tagListId || "sem_etiqueta") === lista.key);
               const soma = cards.reduce((s, l) => s + (l.compras || []).reduce((a, c) => a + (Number(c.valor) || 0), 0), 0);
