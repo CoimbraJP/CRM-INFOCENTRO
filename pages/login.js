@@ -29,9 +29,12 @@ export default function LoginPage() {
 
   return (
     <div className="login-fundo">
-      <Head><title>Entrar — CRM INFO Centro</title></Head>
+      <Head><title>Entrar — CRM</title></Head>
       <form className="login-card" onSubmit={entrar}>
-        <img src="/logo-wide.png" alt="INFO Centro" className="login-logo" />
+        <div className="login-marca">
+          <Ico n="layoutKanban" size={26} />
+          <span>CRM</span>
+        </div>
         <h1><Ico n="lock" size={18} /> Acesso ao sistema</h1>
         <label>Senha</label>
         <input type="password" autoFocus autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="••••••" />
