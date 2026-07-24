@@ -224,8 +224,8 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 }
 .lista.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-suave); }
 .lista-head {
-  display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; cursor: grab;
-  transition: opacity .15s ease; flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px; padding: 4px 4px 10px; cursor: grab;
+  transition: opacity .15s ease; flex-shrink: 0; flex-wrap: nowrap;
 }
 .lista-head:active { cursor: grabbing; }
 /* corpo rolável e dropzone — flex:1 pra ocupar toda a coluna, min-height:0 pra o overflow funcionar */
@@ -253,12 +253,26 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .lista.drop-depois::after { right: -9px; }
 @keyframes linha-pulsa { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: .45; transform: scaleY(.94); } }
 @keyframes card-pousou { 0% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: var(--sombra); } }
-.lista-head .titulo { font-weight: 800; font-size: 13px; letter-spacing: .4px; }
-.lista-head .qtd { background: var(--borda); border-radius: 999px; padding: 0 9px; font-size: 12px; font-weight: 800; }
-.lista-head .soma { margin-left: auto; font-size: 12px; font-weight: 800; color: var(--accent-forte); }
+/* título ocupa o espaço que sobra e trunca com "…" quando é longo — assim empurra a soma e os
+   botões pro canto direito sem estourar a linha (os botões nunca saem de vista) */
+.lista-head .titulo {
+  font-weight: 800; font-size: 13px; letter-spacing: .4px;
+  flex: 1 1 auto; min-width: 32px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lista-head .qtd { flex-shrink: 0; background: var(--borda); border-radius: 999px; padding: 0 9px; font-size: 12px; font-weight: 800; }
+.lista-head .badge-prazo { flex-shrink: 0; }
+/* soma pode encolher/truncar se for muito grande, mas nunca empurra os botões pra fora */
+.lista-head .soma {
+  flex-shrink: 1; min-width: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 800; color: var(--accent-forte);
+}
 [data-theme="dark"] .lista-head .soma { color: var(--accent); }
-.lista-head .x { background: none; border: none; color: var(--cinza); border-radius: 6px; padding: 2px 6px; transition: color .15s ease; }
-.lista-head .x:hover { color: var(--vermelho); }
+.lista-head .x {
+  flex-shrink: 0; background: none; border: none; color: var(--cinza); border-radius: 6px;
+  padding: 3px 5px; display: inline-flex; align-items: center; justify-content: center;
+  transition: color .15s ease, background .15s ease;
+}
+.lista-head .x:hover { color: var(--vermelho); background: var(--card); }
 .arrasta-lista { color: var(--cinza); opacity: .6; flex-shrink: 0; }
 
 .card {
