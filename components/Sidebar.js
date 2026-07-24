@@ -110,7 +110,28 @@ export default function Sidebar({ colapsada, alternar, sessao }) {
         <Ico n="menu" size={20} />
       </button>
       <div className="sidebar-itens">
-        {itens.map((it) => {
+        {/* CRM principal primeiro, depois os quadros criados pelo usuário (um embaixo do outro),
+            e só então o resto do menu (OS, Métricas, Estratégias...) */}
+        {itens[0] && (() => {
+          const it = itens[0];
+          const ativo = router.pathname === it.rota;
+          return (
+            <Link key={it.href} href={it.href} className={"sidebar-item" + (ativo ? " ativo" : "")} title={it.label}>
+              <Ico n={it.icone} size={19} />
+              <span className="sidebar-label">{it.label}</span>
+            </Link>
+          );
+        })()}
+        {quadros.map((q) => {
+          const ativo = router.pathname === "/crm/[board]" && router.query.board === q.key;
+          return (
+            <Link key={q.key} href={`/crm/${q.key}`} className={"sidebar-item" + (ativo ? " ativo" : "")} title={q.nome}>
+              <Ico n="layoutKanban" size={19} />
+              <span className="sidebar-label">{q.nome}</span>
+            </Link>
+          );
+        })}
+        {itens.slice(1).map((it) => {
           const ativo = router.pathname === it.rota;
           return (
             <div key={it.href}>
@@ -120,15 +141,6 @@ export default function Sidebar({ colapsada, alternar, sessao }) {
               </Link>
               {it.label === "Calendário" && miniCalAtivo && !colapsada && <MiniCalendario />}
             </div>
-          );
-        })}
-        {quadros.map((q) => {
-          const ativo = router.pathname === "/crm/[board]" && router.query.board === q.key;
-          return (
-            <Link key={q.key} href={`/crm/${q.key}`} className={"sidebar-item" + (ativo ? " ativo" : "")} title={q.nome}>
-              <Ico n="layoutKanban" size={19} />
-              <span className="sidebar-label">{q.nome}</span>
-            </Link>
           );
         })}
       </div>

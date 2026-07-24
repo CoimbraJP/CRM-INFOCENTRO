@@ -24,18 +24,22 @@ export default async function handler(req, res) {
 
     if (req.method === "GET") {
       let docs = await col.find(filtroT).toArray();
-      const existentes = new Set(docs.map((d) => d.tipo));
-      // "cura" os builtins que ainda não foram semeados pra este tenant (primeira vez, ou
-      // builtin novo adicionado depois — ex.: quando POS7/POS90 foram criados)
-      const faltando = STRATEGY_META.filter((m) => !existentes.has(m.tipo));
-      if (faltando.length > 0) {
-        const maxOrdem = docs.length ? Math.max(...docs.map((d) => d.ordem ?? 0)) : -1;
-        const novos = faltando.map((m, i) => ({
-          tipo: m.tipo, titulo: m.titulo, subtitulo: m.subtitulo, icone: m.icone,
-          ordem: maxOrdem + 1 + i, custom: false, habilitado: true, tenant: sessao.tenant,
-        }));
-        await col.insertMany(novos, { ordered: false }).catch(() => {});
-        docs = await col.find(filtroT).toArray();
+      // as estratégias padrão (D0, D5, D30, Aniversário...) só existem de fábrica pra INFOCENTRO —
+      // os demais clientes começam sem nenhuma e criam só as que quiserem, do zero.
+      if (sessao.tenant === "INFOCENTRO") {
+        const existentes = new Set(docs.map((d) => d.tipo));
+        // "cura" os builtins que ainda não foram semeados pra este tenant (primeira vez, ou
+        // builtin novo adicionado depois — ex.: quando POS7/POS90 foram criados)
+        const faltando = STRATEGY_META.filter((m) => !existentes.has(m.tipo));
+        if (faltando.length > 0) {
+          const maxOrdem = docs.length ? Math.max(...docs.map((d) => d.ordem ?? 0)) : -1;
+          const novos = faltando.map((m, i) => ({
+            tipo: m.tipo, titulo: m.titulo, subtitulo: m.subtitulo, icone: m.icone,
+            ordem: maxOrdem + 1 + i, custom: false, habilitado: true, tenant: sessao.tenant,
+          }));
+          await col.insertMany(novos, { ordered: false }).catch(() => {});
+          docs = await col.find(filtroT).toArray();
+        }
       }
       docs.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
       return res.status(200).json(docs);
@@ -74,7 +78,6 @@ export default async function handler(req, res) {
       if (!tipo) return res.status(400).json({ error: "faltou tipo" });
       const doc = await col.findOne({ $and: [{ tipo }, filtroT] });
       if (!doc) return res.status(404).json({ error: "não encontrada" });
-      if (!doc.custom) return res.status(400).json({ error: "estratégias padrão do sistema não podem ser excluídas" });
       await col.deleteOne({ $and: [{ tipo }, filtroT] });
       await db.collection("templates").deleteOne({ $and: [{ tipo }, filtroT] });
       return res.status(200).json({ ok: true });

@@ -477,9 +477,6 @@ button.sidebar-item {
 .badge-status.ok { background: var(--ok-suave); color: var(--ok-texto); }
 .badge-status.pendente { background: var(--amarelo-suave); color: #92400e; }
 [data-theme="dark"] .badge-status.pendente { color: #fbbf24; }
-.badge-status.oculta { background: var(--borda); color: var(--cinza); margin-top: 4px; }
-.card-estrategia.card-estrategia-oculta { opacity: .55; }
-.card-estrategia.card-estrategia-oculta:hover { opacity: .85; }
 
 /* arrastar pra reordenar os cards de estratégia (mesmo padrão visual das listas do Kanban) */
 .card-estrategia { position: relative; cursor: grab; }
