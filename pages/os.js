@@ -7,6 +7,7 @@ import { useTemplates } from "../lib/TemplatesContext";
 import { STRATEGY_META } from "../lib/messages";
 import { waLink, normalizaFone, primeiroNome, hoje, addDias } from "../lib/crmHelpers";
 import { useModoExpandido } from "../lib/useModoExpandido";
+import { useAutoScrollDrag } from "../lib/useAutoScrollDrag";
 
 const STATUS_ENTREGUE = ["entregue", "encerrado", "encerrada", "finalizada", "concluida", "concluída", "pronta"];
 function foiEntregue(status) {
@@ -134,6 +135,7 @@ export default function OsPage() {
   const [arrastandoLista, setArrastandoLista] = useState(null);
   const [dropLista, setDropLista] = useState(null); // { key, pos }
   const [expandido, alternarExpandido] = useModoExpandido();
+  const { aoArrastarSobre, pararAutoScroll } = useAutoScrollDrag();
 
   function marcarPouso(id) {
     setPousouCard(id);
@@ -423,10 +425,11 @@ export default function OsPage() {
               + (dropLista?.key === lista.key ? (dropLista.pos === "antes" ? " drop-antes" : " drop-depois") : "");
             return (
               <div key={lista.key} className={classeLista}
-                onDragOver={(e) => { e.preventDefault(); if (!dragListaRef.current) e.currentTarget.classList.add("drag-over"); }}
-                onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
+                onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.currentTarget.classList.add("drag-over"); } }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove("drag-over"); }}
                 onDrop={(e) => {
                   e.currentTarget.classList.remove("drag-over");
+                  pararAutoScroll();
                   const id = dragId.current;
                   if (!id) return;
                   const semOrigem = cards.filter((c) => String(c.id) !== String(id));
@@ -453,7 +456,7 @@ export default function OsPage() {
                   {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                 </div>
 
-                <div className="lista-corpo">
+                <div className="lista-corpo" onDragOver={(e) => { if (dragId.current) aoArrastarSobre(e); }}>
                 {cards.map((o) => {
                   const telefone = campo(o.data, "telefone");
                   const leadCRM = telefone ? leadsPorTelefone.get(normalizaFone(telefone)) : null;
@@ -464,9 +467,9 @@ export default function OsPage() {
                       dropPos={dropCard?.id === String(o.id) ? dropCard.pos : null}
                       pousou={pousouCard === String(o.id)}
                       onDragStart={() => { dragId.current = String(o.id); setArrastandoCard(String(o.id)); }}
-                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); }}
+                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); pararAutoScroll(); }}
                       onDragOver={(e) => {
-                        e.preventDefault(); e.stopPropagation();
+                        e.preventDefault();
                         const idOrigem = dragId.current;
                         if (!idOrigem || String(idOrigem) === String(o.id)) return;
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -475,6 +478,7 @@ export default function OsPage() {
                       }}
                       onDrop={(e) => {
                         e.preventDefault(); e.stopPropagation();
+                        pararAutoScroll();
                         const idOrigem = dragId.current;
                         setDropCard(null);
                         if (!idOrigem || String(idOrigem) === String(o.id)) return;

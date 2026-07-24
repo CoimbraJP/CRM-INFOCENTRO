@@ -8,6 +8,7 @@ import { useTags } from "../lib/TagsContext";
 import { STRATEGY_META } from "../lib/messages";
 import { hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
 import { useModoExpandido } from "../lib/useModoExpandido";
+import { useAutoScrollDrag } from "../lib/useAutoScrollDrag";
 
 // por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
 // lista própria da estratégia — as demais (D5, D30, aniversário...) o usuário liga depois.
@@ -29,6 +30,7 @@ export default function CrmBoard({ board, titulo, principal }) {
   const msgDoLembrete = msgDoLembreteFactory(render);
   const router = useRouter();
   const [expandido, alternarExpandido] = useModoExpandido();
+  const { aoArrastarSobre, pararAutoScroll } = useAutoScrollDrag();
 
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
@@ -530,10 +532,11 @@ export default function CrmBoard({ board, titulo, principal }) {
                 + (dropLista?.key === lista.key ? (dropLista.pos === "antes" ? " drop-antes" : " drop-depois") : "");
               return (
                 <div key={lista.key} className={classeLista}
-                  onDragOver={(e) => { e.preventDefault(); if (!dragListaRef.current) e.currentTarget.classList.add("drag-over"); }}
-                  onDragLeave={(e) => e.currentTarget.classList.remove("drag-over")}
+                  onDragOver={(e) => { if (dragId.current) { e.preventDefault(); e.currentTarget.classList.add("drag-over"); } }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove("drag-over"); }}
                   onDrop={(e) => {
                     e.currentTarget.classList.remove("drag-over");
+                    pararAutoScroll();
                     const id = dragId.current;
                     if (!id) return;
                     const lead = leads.find((x) => x._id === id);
@@ -567,16 +570,16 @@ export default function CrmBoard({ board, titulo, principal }) {
                     <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
                     {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                   </div>
-                  <div className="lista-corpo">
+                  <div className="lista-corpo" onDragOver={(e) => { if (dragId.current) aoArrastarSobre(e); }}>
                   {cards.map((lead) => (
                     <Card key={lead._id} lead={lead}
                       dragging={arrastandoCard === lead._id}
                       dropPos={dropCard?.id === lead._id ? dropCard.pos : null}
                       pousou={pousouCard === lead._id}
                       onDragStart={() => { dragId.current = lead._id; setArrastandoCard(lead._id); }}
-                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); }}
+                      onDragEnd={() => { setArrastandoCard(null); setDropCard(null); pararAutoScroll(); }}
                       onDragOver={(e) => {
-                        e.preventDefault(); e.stopPropagation();
+                        e.preventDefault();
                         const idOrigem = dragId.current;
                         if (!idOrigem || idOrigem === lead._id) return;
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -585,6 +588,7 @@ export default function CrmBoard({ board, titulo, principal }) {
                       }}
                       onDrop={(e) => {
                         e.preventDefault(); e.stopPropagation();
+                        pararAutoScroll();
                         const idOrigem = dragId.current;
                         setDropCard(null);
                         if (!idOrigem || idOrigem === lead._id) return;

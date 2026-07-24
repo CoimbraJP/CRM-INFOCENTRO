@@ -180,28 +180,46 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .ph-item .nome { font-weight: 700; }
 .ph-msg { font-size: 12.5px; color: var(--cinza); width: 100%; line-height: 1.5; }
 
-/* ---------- board ----------
-   As listas crescem naturalmente pra baixo (a página toda rola). O cabeçalho de cada
-   lista (.lista-head) fica "grudado" (sticky) no topo do quadro com fundo mais escuro/opaco
-   enquanto o usuário desce a página, assim dá pra sempre ver os nomes das listas vizinhas
-   e mover um cliente do fim de uma lista pra outra sem perder a referência. */
-.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: flex-start; }
+/* ---------- board (estilo Trello/HubSpot/Pipefy) ----------
+   A página não rola: o board tem altura fixa (o que sobra da viewport) e as colunas ficam
+   todas com a MESMA altura (align-items: stretch). Cada coluna rola por dentro, independente
+   das vizinhas — o cabeçalho fica fora da área de rolagem, então está SEMPRE visível, e o
+   corpo (.lista-corpo) é um dropzone inteiro: dá pra soltar um card em qualquer ponto,
+   inclusive no fim da coluna, sem voltar ao topo. */
+.board {
+  display: flex; gap: 14px; padding: 16px 20px 18px; overflow-x: auto; align-items: stretch;
+  height: calc(100vh - 250px); min-height: 440px; transition: height .25s var(--curva);
+}
+.board.board-expandido { height: calc(100vh - 128px); }
 .board::-webkit-scrollbar { height: 10px; }
 .board::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
 .lista {
-  background: var(--lista-bg); border-radius: 14px; min-width: 292px; max-width: 292px;
+  background: var(--lista-bg); border-radius: 14px; min-width: 296px; max-width: 296px;
   border-top: 4px solid var(--accent); padding: 10px; position: relative;
-  transition: outline-color .15s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
-  display: flex; flex-direction: column;
+  transition: outline-color .18s var(--curva), background .18s var(--curva), transform .18s var(--curva), box-shadow .18s var(--curva);
+  display: flex; flex-direction: column; min-height: 0;
 }
 .lista.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-suave); }
 .lista-head {
-  display: flex; align-items: center; gap: 8px; padding: 8px 8px 10px; cursor: grab; transition: opacity .15s ease;
-  flex-shrink: 0; position: sticky; top: 0; z-index: 5; margin: -8px -8px 4px; border-radius: 10px;
-  background: var(--lista-head-bg); backdrop-filter: blur(3px); box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; cursor: grab;
+  transition: opacity .15s ease; flex-shrink: 0;
 }
 .lista-head:active { cursor: grabbing; }
-.lista-corpo { padding-right: 2px; }
+/* corpo rolável e dropzone — flex:1 pra ocupar toda a coluna, min-height:0 pra o overflow funcionar */
+.lista-corpo {
+  flex: 1; overflow-y: auto; min-height: 0; padding-right: 4px;
+  display: flex; flex-direction: column;
+}
+.lista-corpo::-webkit-scrollbar { width: 8px; }
+.lista-corpo::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
+.lista-corpo::-webkit-scrollbar-track { background: transparent; }
+/* placeholder fantasma quando a coluna apta a receber está vazia */
+.lista.drag-over .lista-corpo:empty::after {
+  content: "Solte aqui"; display: flex; align-items: center; justify-content: center;
+  min-height: 64px; border: 2px dashed var(--accent); border-radius: 10px; background: var(--card);
+  color: var(--accent-forte); font-size: 12px; font-weight: 700; opacity: .7;
+}
+[data-theme="dark"] .lista.drag-over .lista-corpo:empty::after { color: var(--accent); }
 .lista.lista-arrastando { opacity: .45; transform: scale(.98); box-shadow: var(--sombra-alta); }
 .lista.drop-antes::before, .lista.drop-depois::after {
   content: ""; position: absolute; top: 8px; bottom: 8px; width: 4px; border-radius: 4px;
@@ -381,8 +399,9 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   .btn { padding: 8px 11px; font-size: 12px; }
   .btn .btn-rotulo { display: none; }
   .painel-hoje { margin: 12px 12px 0; }
-  .board { padding: 12px 12px 20px; gap: 10px; }
-  .lista { min-width: 272px; max-width: 272px; }
+  .board { padding: 12px 12px 14px; gap: 10px; height: calc(100vh - 300px); min-height: 380px; }
+  .board.board-expandido { height: calc(100vh - 168px); }
+  .lista { min-width: 274px; max-width: 274px; }
 }
 
 /* ==========================================================
