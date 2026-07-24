@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "./Layout";
-import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo } from "./CardKit";
+import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo, MenuLista } from "./CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
@@ -573,10 +573,12 @@ export default function CrmBoard({ board, titulo, principal }) {
                         <Ico n="clock" size={11} /> {fmtBR(lista.prazo)}
                       </span>
                     )}
-                    <span className="soma">{soma > 0 ? fmtDinheiro(soma) : ""}</span>
-                    <button className="x" title={lista.prazo ? "Editar prazo desta lista" : "Definir prazo (timer) desta lista"} onClick={() => definirPrazoLista(lista)}><Ico n="clock" size={13} /></button>
-                    <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
-                    {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
+                    {soma > 0 && <span className="soma">{fmtDinheiro(soma)}</span>}
+                    <MenuLista acoes={[
+                      { label: lista.prazo ? "Editar prazo" : "Definir prazo", icone: "clock", onClick: () => definirPrazoLista(lista) },
+                      { label: "Renomear lista", icone: "edit", onClick: () => renomearLista(lista) },
+                      ...(!lista.fixa ? [{ label: "Excluir lista", icone: "trash", onClick: () => excluirLista(lista), perigo: true }] : []),
+                    ]} />
                   </div>
                   <div className="lista-corpo" onDragOver={(e) => { if (dragId.current) aoArrastarSobre(e); }}>
                   {cards.map((lead) => (

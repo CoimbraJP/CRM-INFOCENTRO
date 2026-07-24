@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Layout from "../components/Layout";
-import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo } from "../components/CardKit";
+import { Modal, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo, MenuLista } from "../components/CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { STRATEGY_META } from "../lib/messages";
@@ -452,8 +452,10 @@ export default function OsPage() {
                   <span className="titulo">{lista.nome}</span>
                   <span className="qtd">{cards.length}</span>
                   {soma > 0 && <span className="soma">{fmtValor(soma)}</span>}
-                  <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
-                  {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
+                  <MenuLista acoes={[
+                    { label: "Renomear lista", icone: "edit", onClick: () => renomearLista(lista) },
+                    ...(!lista.fixa ? [{ label: "Excluir lista", icone: "trash", onClick: () => excluirLista(lista), perigo: true }] : []),
+                  ]} />
                 </div>
 
                 <div className="lista-corpo" onDragOver={(e) => { if (dragId.current) aoArrastarSobre(e); }}>

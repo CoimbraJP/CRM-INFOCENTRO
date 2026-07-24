@@ -71,6 +71,38 @@ export function Card({ lead, abrir, zapDireto, alternarResposta, onDragStart, on
   );
 }
 
+// menu de opções da lista (engrenagem no cabeçalho): agrupa Definir prazo / Renomear / Excluir
+// num popover, deixando o cabeçalho limpo. Recebe uma lista de ações {label, icone, onClick, perigo}.
+export function MenuLista({ acoes }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div className="menu-lista-wrap">
+      <button className="x menu-lista-btn" title="Opções da lista"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); setAberto((v) => !v); }}>
+        <Ico n="settings" size={15} />
+      </button>
+      {aberto && (
+        <>
+          <div className="menu-lista-backdrop" onMouseDown={() => setAberto(false)} />
+          <div className="menu-lista" onClick={(e) => e.stopPropagation()}>
+            <div className="menu-lista-topo">
+              <span>Opções da lista</span>
+              <button className="x" title="Fechar" onClick={() => setAberto(false)}><Ico n="x" size={13} /></button>
+            </div>
+            {acoes.map((a, i) => (
+              <button key={i} className={"menu-lista-item" + (a.perigo ? " perigo" : "")}
+                onClick={() => { setAberto(false); a.onClick(); }}>
+                <Ico n={a.icone} size={14} /> {a.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---------------- modais ----------------
 export function Modal({ children, fechar }) {
   return (

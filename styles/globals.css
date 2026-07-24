@@ -225,7 +225,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .lista.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-suave); }
 .lista-head {
   display: flex; align-items: center; gap: 6px; padding: 4px 4px 10px; cursor: grab;
-  transition: opacity .15s ease; flex-shrink: 0; flex-wrap: nowrap;
+  transition: opacity .15s ease; flex-shrink: 0; flex-wrap: wrap;
 }
 .lista-head:active { cursor: grabbing; }
 /* corpo rolável e dropzone — flex:1 pra ocupar toda a coluna, min-height:0 pra o overflow funcionar */
@@ -253,19 +253,15 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .lista.drop-depois::after { right: -9px; }
 @keyframes linha-pulsa { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: .45; transform: scaleY(.94); } }
 @keyframes card-pousou { 0% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: var(--sombra); } }
-/* título ocupa o espaço que sobra e trunca com "…" quando é longo — assim empurra a soma e os
-   botões pro canto direito sem estourar a linha (os botões nunca saem de vista) */
+/* título ocupa o espaço que sobra; se for muito longo, quebra pra linha de baixo (cresce pra
+   baixo) em vez de sumir — a engrenagem e a soma continuam sempre visíveis */
 .lista-head .titulo {
   font-weight: 800; font-size: 13px; letter-spacing: .4px;
-  flex: 1 1 auto; min-width: 32px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; line-height: 1.3;
 }
 .lista-head .qtd { flex-shrink: 0; background: var(--borda); border-radius: 999px; padding: 0 9px; font-size: 12px; font-weight: 800; }
 .lista-head .badge-prazo { flex-shrink: 0; }
-/* soma pode encolher/truncar se for muito grande, mas nunca empurra os botões pra fora */
-.lista-head .soma {
-  flex-shrink: 1; min-width: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; font-weight: 800; color: var(--accent-forte);
-}
+.lista-head .soma { flex-shrink: 0; font-size: 12px; font-weight: 800; color: var(--accent-forte); }
 [data-theme="dark"] .lista-head .soma { color: var(--accent); }
 .lista-head .x {
   flex-shrink: 0; background: none; border: none; color: var(--cinza); border-radius: 6px;
@@ -273,6 +269,34 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   transition: color .15s ease, background .15s ease;
 }
 .lista-head .x:hover { color: var(--vermelho); background: var(--card); }
+
+/* menu de opções da lista (engrenagem) */
+.menu-lista-wrap { position: relative; flex-shrink: 0; margin-left: auto; }
+.menu-lista-btn { color: var(--cinza); }
+.menu-lista-btn:hover { color: var(--accent-forte); background: var(--card); }
+[data-theme="dark"] .menu-lista-btn:hover { color: var(--accent); }
+.menu-lista-backdrop { position: fixed; inset: 0; z-index: 60; }
+.menu-lista {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 61; min-width: 190px;
+  background: var(--card); border: 1px solid var(--borda); border-radius: 12px;
+  box-shadow: var(--sombra-alta); padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.menu-lista-topo {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 6px 6px; margin-bottom: 4px; border-bottom: 1px solid var(--borda);
+  font-size: 10.5px; font-weight: 800; color: var(--cinza); text-transform: uppercase; letter-spacing: .5px;
+}
+.menu-lista-topo .x { padding: 2px 4px; color: var(--cinza); }
+.menu-lista-topo .x:hover { color: var(--vermelho); }
+.menu-lista-item {
+  display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 8px; border: none;
+  background: none; color: var(--texto); font-size: 13px; font-weight: 600; text-align: left; width: 100%;
+  transition: background .12s ease, color .12s ease;
+}
+.menu-lista-item:hover { background: var(--accent-suave); color: var(--accent-forte); }
+[data-theme="dark"] .menu-lista-item:hover { color: var(--accent); }
+.menu-lista-item.perigo { color: var(--vermelho); }
+.menu-lista-item.perigo:hover { background: var(--vermelho-suave); color: var(--vermelho); }
 .arrasta-lista { color: var(--cinza); opacity: .6; flex-shrink: 0; }
 
 .card {
