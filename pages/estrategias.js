@@ -1,42 +1,102 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Layout from "../components/Layout";
 import { Ico } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { STRATEGY_META } from "../lib/messages";
+import { useEstrategias } from "../lib/EstrategiasContext";
+
+// ícones disponíveis pra escolher ao criar uma estratégia nova
+const ICONES_ESCOLHA = ["send", "target", "dollar", "cake", "eyeOff", "wrench", "clock", "tag", "msgCheck", "clipboardCheck"];
 
 export default function EstrategiasPage() {
-  const { templates, personalizados, salvar, carregado } = useTemplates();
+  const { templates, personalizados, salvar, carregado: templatesCarregado } = useTemplates();
+  const { estrategias, carregado, criar, reordenar, excluir } = useEstrategias();
   const [aberta, setAberta] = useState(null); // tipo selecionado (ex: "D0")
+  const [criando, setCriando] = useState(false);
+  const dragRef = useRef(null);
+  const [arrastando, setArrastando] = useState(null);
+  const [dropAlvo, setDropAlvo] = useState(null); // { tipo, pos }
+
+  async function moverParaPosicao(e, alvo) {
+    e.preventDefault(); e.stopPropagation();
+    const tipoOrigem = dragRef.current;
+    dragRef.current = null;
+    if (!tipoOrigem || tipoOrigem === alvo.tipo) return;
+    const semOrigem = estrategias.filter((m) => m.tipo !== tipoOrigem).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const rect = e.currentTarget.getBoundingClientRect();
+    const antes = (e.clientX - rect.left) < rect.width / 2;
+    const idxAlvo = semOrigem.findIndex((m) => m.tipo === alvo.tipo);
+    const viz1 = antes ? semOrigem[idxAlvo - 1] : semOrigem[idxAlvo];
+    const viz2 = antes ? semOrigem[idxAlvo] : semOrigem[idxAlvo + 1];
+    const o1 = viz1?.ordem ?? null, o2 = viz2?.ordem ?? null;
+    const novaOrdem = o1 == null && o2 == null ? Date.now() : o1 == null ? o2 - 1 : o2 == null ? o1 + 1 : (o1 + o2) / 2;
+    await reordenar(tipoOrigem, novaOrdem);
+  }
+
+  async function excluirEstrategia(m) {
+    if (!confirm(`Excluir a estratégia "${m.titulo}"? Os textos cadastrados nela também somem.`)) return;
+    const r = await excluir(m.tipo);
+    if (!r.ok) alert(r.error || "Não consegui excluir.");
+  }
 
   return (
     <Layout titulo="Estratégias">
       <div className="pagina">
         <div className="pagina-titulo"><Ico n="target" size={20} /> Estratégias</div>
-        <div className="pagina-sub">Cada card é uma etapa da cadência de mensagens. Edite os textos aqui — as mudanças valem pra todo envio no CRM e no painel &quot;Enviar hoje&quot;.</div>
+        <div className="pagina-sub">Cada card é uma etapa da cadência de mensagens. Arraste os cards pra reorganizar a ordem — é a mesma ordem que aparece no botão DISPARO. Edite os textos clicando no card.</div>
 
         {!aberta && carregado && (
-          <div className="grid-estrategias">
-            {STRATEGY_META.map((m) => {
-              const personalizado = !!personalizados[m.tipo]?.variacoes?.length;
-              const qtdVariacoes = (templates[m.tipo]?.variacoes || []).length;
-              return (
-                <div key={m.tipo} className="card-estrategia" onClick={() => setAberta(m.tipo)}>
-                  <div className="icone-grande"><Ico n={m.icone} size={20} /></div>
-                  <h3>{m.titulo}</h3>
-                  <p>{m.subtitulo} · {qtdVariacoes} variaç{qtdVariacoes === 1 ? "ão" : "ões"}</p>
-                  <span className={"badge-status " + (personalizado ? "ok" : "pendente")}>
-                    {personalizado ? "Personalizada" : "Modelo padrão"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div className="grid-estrategias">
+              {estrategias.map((m) => {
+                const personalizado = !!personalizados[m.tipo]?.variacoes?.length;
+                const qtdVariacoes = (templates[m.tipo]?.variacoes || []).length;
+                const classe = "card-estrategia"
+                  + (arrastando === m.tipo ? " card-arrastando" : "")
+                  + (dropAlvo?.tipo === m.tipo ? (dropAlvo.pos === "antes" ? " drop-antes" : " drop-depois") : "");
+                return (
+                  <div key={m.tipo} className={classe} draggable
+                    onClick={() => setAberta(m.tipo)}
+                    onDragStart={(e) => { e.stopPropagation(); dragRef.current = m.tipo; setArrastando(m.tipo); }}
+                    onDragEnd={() => { setArrastando(null); setDropAlvo(null); }}
+                    onDragOver={(e) => {
+                      e.preventDefault(); e.stopPropagation();
+                      if (!dragRef.current || dragRef.current === m.tipo) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const antes = (e.clientX - rect.left) < rect.width / 2;
+                      setDropAlvo({ tipo: m.tipo, pos: antes ? "antes" : "depois" });
+                    }}
+                    onDrop={(e) => { moverParaPosicao(e, m); setArrastando(null); setDropAlvo(null); }}>
+                    <div className="card-estrategia-topo">
+                      <Ico n="gripVertical" size={14} className="arrasta-lista" />
+                      {m.custom && (
+                        <button className="x" title="Excluir estratégia" onClick={(e) => { e.stopPropagation(); excluirEstrategia(m); }}>
+                          <Ico n="x" size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="icone-grande"><Ico n={m.icone} size={20} /></div>
+                    <h3>{m.titulo}</h3>
+                    <p>{m.subtitulo} · {qtdVariacoes} variaç{qtdVariacoes === 1 ? "ão" : "ões"}</p>
+                    <span className={"badge-status " + (personalizado ? "ok" : "pendente")}>
+                      {personalizado ? "Personalizada" : "Modelo padrão"}
+                    </span>
+                  </div>
+                );
+              })}
+              <button className="card-estrategia card-estrategia-nova" onClick={() => setCriando(true)}>
+                <div className="icone-grande"><Ico n="plus" size={20} /></div>
+                <h3>Criar estratégia</h3>
+                <p>Nova etapa da cadência, sob demanda</p>
+              </button>
+            </div>
+            {criando && <ModalCriarEstrategia criar={criar} fechar={() => setCriando(false)} abrirEditor={setAberta} />}
+          </>
         )}
 
-        {aberta && (
+        {aberta && templatesCarregado && (
           <EditorEstrategia
             tipo={aberta}
-            meta={STRATEGY_META.find((m) => m.tipo === aberta)}
+            meta={estrategias.find((m) => m.tipo === aberta)}
             variacoesAtuais={templates[aberta]?.variacoes || []}
             salvar={salvar}
             voltar={() => setAberta(null)}
@@ -47,10 +107,58 @@ export default function EstrategiasPage() {
   );
 }
 
+function ModalCriarEstrategia({ criar, fechar, abrirEditor }) {
+  const [titulo, setTitulo] = useState("");
+  const [subtitulo, setSubtitulo] = useState("");
+  const [icone, setIcone] = useState(ICONES_ESCOLHA[0]);
+  const [criando, setCriando] = useState(false);
+
+  async function onCriar() {
+    if (!titulo.trim()) { alert("Dá um nome pra estratégia."); return; }
+    setCriando(true);
+    const nova = await criar({ titulo, subtitulo, icone });
+    setCriando(false);
+    if (!nova) { alert("Não consegui criar — confira a conexão e tente de novo."); return; }
+    fechar();
+    abrirEditor(nova.tipo);
+  }
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && fechar()}>
+      <div className="modal">
+        <h2><Ico n="plus" /> Criar estratégia</h2>
+        <label>Título</label>
+        <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Convite pra avaliação" autoFocus />
+        <label>Quando usar (subtítulo, opcional)</label>
+        <input type="text" value={subtitulo} onChange={(e) => setSubtitulo(e.target.value)} placeholder="Ex: sob demanda, D+15…" />
+        <label>Ícone</label>
+        <div className="seletor-icones">
+          {ICONES_ESCOLHA.map((n) => (
+            <button key={n} type="button" className={"icone-opcao" + (icone === n ? " on" : "")} onClick={() => setIcone(n)}>
+              <Ico n={n} size={18} />
+            </button>
+          ))}
+        </div>
+        <div className="acoes">
+          <button className="btn2" onClick={fechar}><Ico n="x" size={14} /> Cancelar</button>
+          <button className="btn2 primario" disabled={criando} onClick={onCriar}><Ico n="check" size={14} /> {criando ? "Criando…" : "Criar e editar textos"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar }) {
   const [variacoes, setVariacoes] = useState(variacoesAtuais.length ? variacoesAtuais : [""]);
   const [salvando, setSalvando] = useState(false);
   const nomeExemplo = "João";
+
+  if (!meta) return (
+    <div style={{ maxWidth: 820 }}>
+      <button className="btn2" style={{ marginBottom: 16 }} onClick={voltar}><Ico n="chevronLeft" size={15} /> Voltar</button>
+      <div className="vazio">Estratégia não encontrada.</div>
+    </div>
+  );
 
   function atualizar(i, valor) {
     setVariacoes((vs) => vs.map((v, j) => (j === i ? valor : v)));

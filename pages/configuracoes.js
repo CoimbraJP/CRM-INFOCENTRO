@@ -3,14 +3,23 @@ import Layout from "../components/Layout";
 import { Ico } from "../lib/icons";
 import { useTags } from "../lib/TagsContext";
 
-const CONFIG_META = [
+const CONFIG_META_BASE = [
   { id: "etiquetas", titulo: "Etiquetas", subtitulo: "Nomes e cores — usados em todo o sistema", icone: "tag" },
+  { id: "logo", titulo: "Logo da conta", subtitulo: "Imagem exibida no topo, só nesta conta", icone: "laptop" },
+];
+// Integração PDV e Sobre só existem na conta INFOCENTRO (é onde a integração com o PDV acontece)
+const CONFIG_META_INFOCENTRO = [
   { id: "pdv", titulo: "Integração PDV", subtitulo: "Status da conexão com as Ordens de Serviço", icone: "wrench" },
   { id: "sobre", titulo: "Sobre o sistema", subtitulo: "Banco de dados e ambiente", icone: "info" },
 ];
 
 export default function ConfiguracoesPage() {
   const [aberta, setAberta] = useState(null);
+  const [tenant, setTenant] = useState(null);
+  useEffect(() => {
+    fetch("/api/auth").then((r) => r.json()).then((j) => setTenant(j.tenant || null)).catch(() => {});
+  }, []);
+  const CONFIG_META = [...CONFIG_META_BASE, ...(tenant === "INFOCENTRO" ? CONFIG_META_INFOCENTRO : [])];
   const meta = CONFIG_META.find((m) => m.id === aberta);
 
   return (
@@ -42,6 +51,7 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
             {aberta === "etiquetas" && <EditorEtiquetas />}
+            {aberta === "logo" && <PainelLogo />}
             {aberta === "pdv" && <PainelPdv />}
             {aberta === "sobre" && <PainelSobre />}
           </div>
@@ -91,6 +101,71 @@ function EditorEtiquetas() {
       <p style={{ fontSize: 12.5, color: "var(--cinza)", marginTop: 10 }}>
         Mudanças de nome e cor aparecem na hora nos cards, no seletor de etiquetas e nas colunas do quadro Etiquetas.
       </p>
+    </div>
+  );
+}
+
+function PainelLogo() {
+  const [logo, setLogo] = useState(undefined); // undefined = carregando, null = sem logo custom
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/logo").then((r) => r.json()).then((j) => setLogo(j.logo || null)).catch(() => setLogo(null));
+  }, []);
+
+  function onArquivo(e) {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      const img = new Image();
+      img.onload = async () => {
+        // redimensiona pro logo caber numa topbar (max 480x160) e comprime, pra ficar leve no banco
+        const alvoW = 480, alvoH = 160;
+        const escala = Math.min(alvoW / img.width, alvoH / img.height, 1);
+        const w = Math.round(img.width * escala), h = Math.round(img.height * escala);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/png");
+        setEnviando(true);
+        const r = await fetch("/api/logo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ logo: dataUrl }) });
+        setEnviando(false);
+        if (!r.ok) { const j = await r.json().catch(() => ({})); alert(j.error || "Não consegui salvar o logo."); return; }
+        setLogo(dataUrl);
+        window.location.reload(); // recarrega pra atualizar o logo já na topbar
+      };
+      img.src = leitor.result;
+    };
+    leitor.readAsDataURL(file);
+  }
+
+  async function remover() {
+    if (!confirm("Remover o logo desta conta e voltar ao logo padrão da INFO Centro?")) return;
+    const r = await fetch("/api/logo", { method: "DELETE" });
+    if (!r.ok) { alert("Não consegui remover."); return; }
+    setLogo(null);
+    window.location.reload();
+  }
+
+  if (logo === undefined) return <div className="vazio">Carregando…</div>;
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: "var(--cinza)", marginBottom: 14 }}>
+        Esse logo aparece no topo do sistema só pra quem está logado nesta conta — as outras contas continuam vendo o logo padrão (ou o próprio, se tiverem subido um).
+      </p>
+      <div style={{ padding: 16, border: "1px dashed var(--borda)", borderRadius: 12, background: "var(--card)", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 90 }}>
+        <img src={logo || "/logo-wide.png"} alt="Logo atual" style={{ maxWidth: "100%", maxHeight: 80 }} />
+      </div>
+      <label className="btn2 primario" style={{ display: "inline-flex", cursor: "pointer" }}>
+        <Ico n="upload" size={14} /> {enviando ? "Enviando…" : logo ? "Trocar logo" : "Enviar logo"}
+        <input type="file" accept="image/*" onChange={onArquivo} disabled={enviando} style={{ display: "none" }} />
+      </label>
+      {logo && (
+        <button className="btn2 perigo" style={{ marginLeft: 10 }} onClick={remover}><Ico n="trash" size={14} /> Remover (voltar ao padrão)</button>
+      )}
     </div>
   );
 }

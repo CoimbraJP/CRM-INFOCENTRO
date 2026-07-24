@@ -386,6 +386,12 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 }
 .sidebar-item:hover { background: var(--accent-suave); }
 .sidebar-item.ativo { background: var(--accent-suave); border-left-color: var(--accent); color: var(--accent-forte); }
+/* "Criar CRM" é um <button>, não um <a> — zera o visual padrão de botão pra herdar o estilo acima */
+button.sidebar-item {
+  width: 100%; background: none; border: none; border-left: 3px solid transparent;
+  font-family: inherit; cursor: pointer; text-align: left; color: var(--accent-forte);
+}
+[data-theme="dark"] button.sidebar-item { color: var(--accent); }
 [data-theme="dark"] .sidebar-item.ativo { color: var(--accent); }
 .sidebar.colapsada .sidebar-label { display: none; }
 .sidebar.colapsada .sidebar-item { justify-content: center; padding: 12px; }
@@ -425,6 +431,41 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .badge-status.ok { background: var(--ok-suave); color: var(--ok-texto); }
 .badge-status.pendente { background: var(--amarelo-suave); color: #92400e; }
 [data-theme="dark"] .badge-status.pendente { color: #fbbf24; }
+
+/* arrastar pra reordenar os cards de estratégia (mesmo padrão visual das listas do Kanban) */
+.card-estrategia { position: relative; cursor: grab; }
+.card-estrategia:active { cursor: grabbing; }
+.card-estrategia.card-arrastando { opacity: .45; transform: scale(.97); box-shadow: none; }
+.card-estrategia.drop-antes::before, .card-estrategia.drop-depois::after {
+  content: ""; position: absolute; top: 8px; bottom: 8px; width: 4px; border-radius: 4px;
+  background: var(--accent); box-shadow: 0 0 0 4px var(--accent-suave), 0 0 14px var(--accent);
+}
+.card-estrategia.drop-antes::before { left: -9px; }
+.card-estrategia.drop-depois::after { right: -9px; }
+.card-estrategia-topo { display: flex; align-items: center; justify-content: space-between; }
+.card-estrategia-topo .arrasta-lista { opacity: .5; }
+.card-estrategia-topo .x { background: none; border: none; color: var(--cinza); border-radius: 6px; padding: 2px 6px; transition: color .15s ease; }
+.card-estrategia-topo .x:hover { color: var(--vermelho); }
+.card-estrategia-nova {
+  background: transparent; border: 2px dashed var(--borda); border-radius: 14px; padding: 18px;
+  display: flex; flex-direction: column; gap: 10px; min-height: 130px; align-items: flex-start;
+  color: var(--cinza); cursor: pointer; transition: border-color .2s ease, color .2s ease;
+}
+.card-estrategia-nova:hover { border-color: var(--accent); color: var(--accent-forte); }
+[data-theme="dark"] .card-estrategia-nova:hover { color: var(--accent); }
+.card-estrategia-nova .icone-grande { background: var(--fundo-suave); color: inherit; }
+.card-estrategia-nova h3 { color: var(--texto); }
+
+/* seletor de ícone no formulário de criar estratégia */
+.seletor-icones { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.icone-opcao {
+  width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--borda); background: var(--card);
+  color: var(--cinza); display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.icone-opcao:hover { border-color: var(--accent); color: var(--accent-forte); }
+.icone-opcao.on { border-color: var(--accent); background: var(--accent-suave); color: var(--accent-forte); }
+[data-theme="dark"] .icone-opcao.on, [data-theme="dark"] .icone-opcao:hover { color: var(--accent); }
 
 /* Configurações — editor de etiquetas */
 .etiqueta-linha, .nova-etiqueta {
@@ -474,6 +515,20 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 }
 [data-theme="dark"] .faixa-backup { color: #fbbf24; }
 .faixa-backup .btn2 { margin-left: auto; }
+
+/* aviso de prazo (timer) de lista vencido — só aparece se a lista tiver algum cliente dentro */
+.faixa-prazo {
+  margin: 16px 20px 0; padding: 12px 16px; border-radius: 12px;
+  background: var(--vermelho-suave, #fee2e2); color: var(--vermelho, #b91c1c); border: 1px solid rgba(185, 28, 28, .25);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600;
+}
+[data-theme="dark"] .faixa-prazo { background: rgba(185, 28, 28, .15); color: #fca5a5; }
+.badge-prazo {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800;
+  padding: 2px 8px; border-radius: 999px; background: var(--borda); color: var(--cinza);
+}
+.badge-prazo.vencido { background: var(--vermelho-suave, #fee2e2); color: var(--vermelho, #b91c1c); }
+[data-theme="dark"] .badge-prazo.vencido { background: rgba(185, 28, 28, .2); color: #fca5a5; }
 
 /* ---------- login / administração ---------- */
 .login-fundo {

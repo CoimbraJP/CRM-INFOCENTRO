@@ -8,6 +8,7 @@ export default function Layout({ children, titulo, acoes }) {
   const [colapsada, setColapsada] = useState(false);
   const [temaEscuro, setTemaEscuro] = useState(false);
   const [sessao, setSessao] = useState(null); // { usuario, tenant, admin }
+  const [logo, setLogo] = useState(null); // logo customizado desta conta, se tiver
   const router = useRouter();
 
   useEffect(() => {
@@ -25,6 +26,12 @@ export default function Layout({ children, titulo, acoes }) {
       else setSessao(j);
     })).catch(() => {});
   }, [router]);
+
+  // logo customizado desta conta (Configurações → Logo da conta) — se não tiver, usa o padrão
+  useEffect(() => {
+    if (!sessao?.tenant) return;
+    fetch("/api/logo").then((r) => r.json()).then((j) => setLogo(j.logo || null)).catch(() => {});
+  }, [sessao?.tenant]);
 
   async function sair() {
     await fetch("/api/auth", { method: "DELETE" }).catch(() => {});
@@ -50,7 +57,7 @@ export default function Layout({ children, titulo, acoes }) {
       <Sidebar colapsada={colapsada} alternar={alternarSidebar} sessao={sessao} />
       <div className="app-main">
         <div className="topbar">
-          <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />
+          <img src={logo || "/logo-wide.png"} alt={sessao?.usuario || "INFO Centro"} className="logo" />
           <span className="espaco" />
           {acoes && <div className="topbar-acoes">{acoes}</div>}
           <button className="btn-tema" onClick={alternarTema} title={temaEscuro ? "Mudar para tema claro" : "Mudar para tema escuro"} aria-label="Alternar tema">

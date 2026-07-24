@@ -37,17 +37,30 @@ function defaultListsOs() {
   ];
 }
 
+// colunas iniciais de um quadro de CRM criado pelo usuário (board começa com "crmb_")
+function defaultListsCustom(board) {
+  return [
+    { key: "inbox", nome: "NOVOS", ordem: 0, fixa: true, board },
+    { key: "andamento", nome: "EM ANDAMENTO", ordem: 1, fixa: false, board },
+    { key: "concluido", nome: "CONCLUÍDO", ordem: 2, fixa: false, board },
+  ];
+}
+
 async function seedPara(board, db, filtroT, tenant) {
   if (board === "crm") return DEFAULT_LISTS_CRM;
   if (board === "tags") return defaultListsTags(db, filtroT, tenant);
   if (board === "os") return defaultListsOs();
+  if (board.startsWith("crmb_")) return defaultListsCustom(board);
   // board novo/desconhecido — pelo menos uma coluna inicial, já com o board certo
   return [{ key: "todas", nome: "TODAS", ordem: 0, fixa: true, board }];
 }
 
-// em qual collection/campo verificar se a lista está em uso antes de excluir
+// em qual collection/campo verificar se a lista está em uso antes de excluir.
+// "leads" é compartilhada entre vários boards (crm principal + quadros criados pelo usuário),
+// então a checagem também precisa bater o campo "board" — senão duas listas com a mesma key
+// em quadros diferentes (ex.: "inbox") se confundiriam.
 const CHECAGEM_EXCLUSAO = {
-  crm: { collection: "leads", campo: "listId" },
+  crm: { collection: "leads", campo: "listId", filtroBoard: { $or: [{ board: "crm" }, { board: { $exists: false } }] } },
   tags: { collection: "leads", campo: "tagListId" },
   os: { collection: "os_placement", campo: "listId" },
 };
@@ -98,11 +111,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const { _id, nome, ordem } = req.body || {};
+      const { _id, nome, ordem, prazo } = req.body || {};
       if (!_id) return res.status(400).json({ error: "faltou _id" });
       const set = {};
       if (nome !== undefined) set.nome = nome;
       if (ordem !== undefined) set.ordem = ordem;
+      if (prazo !== undefined) set.prazo = prazo || null; // data (AAAA-MM-DD) ou null pra remover
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
       await col.updateOne({ $and: [{ _id: new ObjectId(_id) }, filtroT] }, { $set: set });
       return res.status(200).json({ ok: true });
@@ -111,8 +125,11 @@ export default async function handler(req, res) {
     if (req.method === "DELETE") {
       const { _id, key } = req.query;
       if (!_id) return res.status(400).json({ error: "faltou _id" });
-      const checagem = CHECAGEM_EXCLUSAO[board] || CHECAGEM_EXCLUSAO.crm;
-      const emUso = await db.collection(checagem.collection).countDocuments({ $and: [{ [checagem.campo]: key }, filtroT] });
+      // quadros de CRM criados pelo usuário (crmb_*) usam "leads" com escopo pelo próprio board
+      const checagem = CHECAGEM_EXCLUSAO[board] || { collection: "leads", campo: "listId", filtroBoard: { board } };
+      const condicoes = [{ [checagem.campo]: key }, filtroT];
+      if (checagem.filtroBoard) condicoes.push(checagem.filtroBoard);
+      const emUso = await db.collection(checagem.collection).countDocuments({ $and: condicoes });
       if (emUso > 0) return res.status(400).json({ error: "Mova os cards antes de excluir a lista" });
       await col.deleteOne({ $and: [{ _id: new ObjectId(_id) }, filtroT] });
       return res.status(200).json({ ok: true });

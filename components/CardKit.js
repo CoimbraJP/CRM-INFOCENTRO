@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Ico, IcoZap } from "../lib/icons";
 import { hoje, fmtBR, fmtDinheiro, ehAniversarioHoje, addDias, primeiroNome } from "../lib/crmHelpers";
 import { useTags } from "../lib/TagsContext";
-import { STRATEGY_META } from "../lib/messages";
+import { useEstrategias } from "../lib/EstrategiasContext";
 
 export function novaCadencia(base) {
   const b = base || hoje();
@@ -90,6 +90,10 @@ export function ModalImportar({ opts, setOpts, fileRef, onFile }) {
         A planilha precisa ter colunas com <b>telefone</b> (obrigatório) e, se tiver, <b>nome</b>, <b>serviço</b> e <b>nascimento</b>.
         Números repetidos são ignorados automaticamente.
       </p>
+      <p style={{ fontSize: 13, color: "var(--cinza)" }}>
+        Se a planilha tiver as colunas <b>Recorrencia</b> (dia do mês, ex.: 10) e <b>Mensagem Recorrencia</b> (ex.: &quot;cobrar taxa mensal&quot;),
+        um lembrete recorrente já entra agendado pra esse cliente, avisando todo mês nesse dia.
+      </p>
       <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0", fontSize: 14, color: "var(--texto)", fontWeight: 400 }}>
         <input type="checkbox" checked={opts.cadencia} onChange={(e) => setOpts({ ...opts, cadencia: e.target.checked })} />
         Preencher agenda automática: <b>D+0, D+5 e D+30</b> com as mensagens prontas
@@ -102,7 +106,7 @@ export function ModalImportar({ opts, setOpts, fileRef, onFile }) {
 export function ModalEditar({ lead, onSalvar, onExcluir }) {
   const [f, setF] = useState({
     nome: lead?.nome || "", telefone: lead?.telefone || "", servico: lead?.servico || "",
-    nascimento: lead?.nascimento || "", cadencia: !lead,
+    nascimento: lead?.nascimento || "", cadencia: false,
   });
   return (
     <div>
@@ -155,9 +159,16 @@ export function ModalObs({ lead, salvar }) {
 }
 
 export function ModalAgenda({ lead, salvar, enviar, templates, msgDoLembrete }) {
-  const [novo, setNovo] = useState({ data: hoje(), texto: "" });
+  const [novo, setNovo] = useState({ data: hoje(), diaDoMes: 10, texto: "" });
+  const [recorrente, setRecorrente] = useState(false);
   if (!lead) return null;
   const temCadencia = (lead.lembretes || []).some((l) => l.tipo === "D0");
+  const anoMesAtual = hoje().slice(0, 7);
+
+  function marcarFeitoRecorrente(lem, desfazer) {
+    salvar({ ...lead, lembretes: lead.lembretes.map((l) => (l.id === lem.id ? { ...l, ultimaVezFeito: desfazer ? null : hoje() } : l)) });
+  }
+
   return (
     <div>
       <h2><Ico n="calendar" /> Agenda de mensagens — {lead.nome || lead.telefone}</h2>
@@ -169,6 +180,22 @@ export function ModalAgenda({ lead, salvar, enviar, templates, msgDoLembrete }) 
       )}
       {(lead.lembretes || []).length === 0 && <div className="vazio">Nenhuma mensagem agendada.</div>}
       {(lead.lembretes || []).map((lem) => {
+        if (lem.recorrente) {
+          const feitoEsteMes = lem.ultimaVezFeito && lem.ultimaVezFeito.slice(0, 7) === anoMesAtual;
+          const texto = msgDoLembrete(lead, lem);
+          return (
+            <div className={"linha-item" + (feitoEsteMes ? " enviado" : "")} key={lem.id}>
+              <span className="data">Todo dia {lem.diaDoMes}</span>
+              <span className="desc"><b>Recorrente</b> — {lem.texto}</span>
+              {!feitoEsteMes && <button className="btn2 zap" onClick={() => enviar(lead, texto)}><Ico n="send" size={14} /> Enviar agora</button>}
+              <button className="btn2" title={feitoEsteMes ? "Desmarcar (voltar a lembrar este mês)" : "Marcar feito este mês"} onClick={() => marcarFeitoRecorrente(lem, feitoEsteMes)}>
+                <Ico n="check" size={14} /> {feitoEsteMes ? "Feito ✓" : "Feito este mês"}
+              </button>
+              <button className="btn2" title="Excluir" onClick={() => salvar({ ...lead, lembretes: lead.lembretes.filter((l) => l.id !== lem.id) })}><Ico n="trash" size={14} /></button>
+              {!feitoEsteMes && <div className="msg-preview">{texto}</div>}
+            </div>
+          );
+        }
         const texto = msgDoLembrete(lead, lem);
         return (
           <div className={"linha-item" + (lem.enviado ? " enviado" : "")} key={lem.id}>
@@ -181,16 +208,35 @@ export function ModalAgenda({ lead, salvar, enviar, templates, msgDoLembrete }) 
           </div>
         );
       })}
-      <h3>Agendar mensagem personalizada</h3>
-      <label>Data</label>
-      <input type="date" value={novo.data} onChange={(e) => setNovo({ ...novo, data: e.target.value })} />
+      <h3>Agendar mensagem {recorrente ? "recorrente" : "personalizada"}</h3>
+      <button type="button" className="btn2" style={{ marginBottom: 12 }} onClick={() => setRecorrente((r) => !r)}>
+        <Ico n="refresh" size={14} /> {recorrente ? "Usar data única, em vez disso" : "Tornar recorrente (repete todo mês)"}
+      </button>
+      {recorrente ? (
+        <>
+          <label>Dia do mês pra lembrar</label>
+          <input type="number" min="1" max="31" value={novo.diaDoMes} onChange={(e) => setNovo({ ...novo, diaDoMes: e.target.value })} />
+        </>
+      ) : (
+        <>
+          <label>Data</label>
+          <input type="date" value={novo.data} onChange={(e) => setNovo({ ...novo, data: e.target.value })} />
+        </>
+      )}
       <label>Mensagem (use {"{nome}"} para o nome do cliente)</label>
       <textarea value={novo.texto} onChange={(e) => setNovo({ ...novo, texto: e.target.value })} placeholder="Oi {nome}! …" />
       <div className="acoes">
-        <button className="btn2 primario" onClick={() => { if (!novo.texto.trim()) return;
-          salvar({ ...lead, lembretes: [...(lead.lembretes || []), { id: "p" + Date.now(), data: novo.data, texto: novo.texto.trim(), enviado: false }] });
-          setNovo({ data: hoje(), texto: "" }); }}>
-          <Ico n="calendar" size={14} /> Agendar
+        <button className="btn2 primario" onClick={() => {
+          if (!novo.texto.trim()) return;
+          if (recorrente) {
+            const dia = Math.min(31, Math.max(1, Number(novo.diaDoMes) || 1));
+            salvar({ ...lead, lembretes: [...(lead.lembretes || []), { id: "r" + Date.now(), recorrente: true, diaDoMes: dia, texto: novo.texto.trim(), ultimaVezFeito: null }] });
+          } else {
+            salvar({ ...lead, lembretes: [...(lead.lembretes || []), { id: "p" + Date.now(), data: novo.data, texto: novo.texto.trim(), enviado: false }] });
+          }
+          setNovo({ data: hoje(), diaDoMes: 10, texto: "" });
+        }}>
+          <Ico n="calendar" size={14} /> {recorrente ? "Agendar recorrência" : "Agendar"}
         </button>
       </div>
     </div>
@@ -252,11 +298,13 @@ export function ModalTags({ lead, salvar }) {
 // Disparo rápido: escolhe uma estratégia cadastrada (Estratégias), escolhe a variação
 // e manda pro WhatsApp já com o texto pronto — sem depender de agenda/cadência.
 export function ModalDisparo({ lead, templates, render, enviar }) {
+  const { estrategias } = useEstrategias();
   const [tipo, setTipo] = useState(null);
   if (!lead) return null;
 
   if (!tipo) {
-    const disponiveis = STRATEGY_META.filter((m) => m.habilitado);
+    // já vem ordenado pelo campo "ordem" (definido em Estratégias, arrastando os cards)
+    const disponiveis = estrategias.filter((m) => m.habilitado);
     return (
       <div>
         <h2><Ico n="send" /> Disparo — {lead.nome || lead.telefone}</h2>
@@ -274,7 +322,7 @@ export function ModalDisparo({ lead, templates, render, enviar }) {
     );
   }
 
-  const meta = STRATEGY_META.find((m) => m.tipo === tipo);
+  const meta = estrategias.find((m) => m.tipo === tipo);
   const variacoes = templates?.[tipo]?.variacoes || [];
   return (
     <div>
