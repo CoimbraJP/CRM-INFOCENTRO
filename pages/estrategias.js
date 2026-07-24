@@ -9,7 +9,7 @@ const ICONES_ESCOLHA = ["send", "target", "dollar", "cake", "eyeOff", "wrench", 
 
 export default function EstrategiasPage() {
   const { templates, personalizados, salvar, carregado: templatesCarregado } = useTemplates();
-  const { estrategias, carregado, criar, reordenar, excluir } = useEstrategias();
+  const { estrategias, carregado, criar, reordenar, excluir, atualizarMeta } = useEstrategias();
   const [aberta, setAberta] = useState(null); // tipo selecionado (ex: "D0")
   const [criando, setCriando] = useState(false);
   const dragRef = useRef(null);
@@ -39,6 +39,12 @@ export default function EstrategiasPage() {
     return true;
   }
 
+  // estratégias padrão do sistema não podem ser excluídas (alimentam automações), mas dá pra
+  // ocultar da lista/botão DISPARO — os textos ficam salvos, é só reversível a qualquer momento
+  async function alternarOculta(m) {
+    await atualizarMeta(m.tipo, { habilitado: !m.habilitado });
+  }
+
   return (
     <Layout titulo="Estratégias">
       <div className="pagina">
@@ -53,6 +59,7 @@ export default function EstrategiasPage() {
                 const qtdVariacoes = (templates[m.tipo]?.variacoes || []).length;
                 const classe = "card-estrategia"
                   + (arrastando === m.tipo ? " card-arrastando" : "")
+                  + (m.habilitado === false ? " card-estrategia-oculta" : "")
                   + (dropAlvo?.tipo === m.tipo ? (dropAlvo.pos === "antes" ? " drop-antes" : " drop-depois") : "");
                 return (
                   <div key={m.tipo} className={classe} draggable
@@ -69,9 +76,13 @@ export default function EstrategiasPage() {
                     onDrop={(e) => { moverParaPosicao(e, m); setArrastando(null); setDropAlvo(null); }}>
                     <div className="card-estrategia-topo">
                       <Ico n="gripVertical" size={14} className="arrasta-lista" />
-                      {m.custom && (
+                      {m.custom ? (
                         <button className="x" title="Excluir estratégia" onClick={(e) => { e.stopPropagation(); excluirEstrategia(m); }}>
                           <Ico n="x" size={13} />
+                        </button>
+                      ) : (
+                        <button className="x" title={m.habilitado === false ? "Mostrar de novo no Disparo" : "Ocultar do Disparo"} onClick={(e) => { e.stopPropagation(); alternarOculta(m); }}>
+                          <Ico n={m.habilitado === false ? "eyeOff" : "eye"} size={13} />
                         </button>
                       )}
                     </div>
@@ -81,6 +92,7 @@ export default function EstrategiasPage() {
                     <span className={"badge-status " + (personalizado ? "ok" : "pendente")}>
                       {personalizado ? "Personalizada" : "Modelo padrão"}
                     </span>
+                    {m.habilitado === false && <span className="badge-status oculta">Oculta do Disparo</span>}
                   </div>
                 );
               })}
@@ -102,6 +114,7 @@ export default function EstrategiasPage() {
             salvar={salvar}
             voltar={() => setAberta(null)}
             excluir={async (m) => { if (await excluirEstrategia(m)) setAberta(null); }}
+            alternarOculta={alternarOculta}
           />
         )}
       </div>
@@ -150,7 +163,7 @@ function ModalCriarEstrategia({ criar, fechar, abrirEditor }) {
   );
 }
 
-function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar, excluir }) {
+function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar, excluir, alternarOculta }) {
   const [variacoes, setVariacoes] = useState(variacoesAtuais.length ? variacoesAtuais : [""]);
   const [salvando, setSalvando] = useState(false);
   const nomeExemplo = "João";
@@ -211,15 +224,20 @@ function EditorEstrategia({ tipo, meta, variacoesAtuais, salvar, voltar, excluir
         <button className="btn2 primario" disabled={salvando} onClick={onSalvar}>
           <Ico n="save" size={15} /> {salvando ? "Salvando…" : "Salvar estratégia"}
         </button>
-        {meta.custom && (
+        {meta.custom ? (
           <button className="btn2 perigo" onClick={() => excluir(meta)}>
             <Ico n="trash" size={14} /> Excluir estratégia
+          </button>
+        ) : (
+          <button className="btn2 perigo" onClick={() => alternarOculta(meta)}>
+            <Ico n={meta.habilitado === false ? "eye" : "eyeOff"} size={14} />
+            {meta.habilitado === false ? " Mostrar de novo no Disparo" : " Ocultar do Disparo"}
           </button>
         )}
       </div>
       {!meta.custom && (
         <div className="vazio" style={{ marginTop: 10 }}>
-          Estratégias padrão do sistema não podem ser excluídas (são usadas nos envios automáticos). Só dá pra excluir estratégias criadas por você.
+          Estratégias padrão do sistema não podem ser excluídas de verdade (são usadas nos envios automáticos), mas você pode ocultá-la — ela some do botão DISPARO (continua aqui na lista, só marcada como oculta), sem perder os textos. Dá pra reverter quando quiser.
         </div>
       )}
     </div>

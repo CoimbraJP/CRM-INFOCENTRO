@@ -56,13 +56,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "PUT") {
-      const { tipo, ordem, titulo, subtitulo, icone } = req.body || {};
+      const { tipo, ordem, titulo, subtitulo, icone, habilitado } = req.body || {};
       if (!tipo) return res.status(400).json({ error: "faltou tipo" });
       const set = {};
       if (ordem !== undefined) set.ordem = ordem;
       if (titulo !== undefined) set.titulo = titulo;
       if (subtitulo !== undefined) set.subtitulo = subtitulo;
       if (icone !== undefined) set.icone = icone;
+      if (habilitado !== undefined) set.habilitado = !!habilitado;
       if (Object.keys(set).length === 0) return res.status(400).json({ error: "nada para atualizar" });
       await col.updateOne({ $and: [{ tipo }, filtroT] }, { $set: set });
       return res.status(200).json({ ok: true });
