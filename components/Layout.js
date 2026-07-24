@@ -9,6 +9,7 @@ export default function Layout({ children, titulo, acoes }) {
   const [temaEscuro, setTemaEscuro] = useState(false);
   const [sessao, setSessao] = useState(null); // { usuario, tenant, admin }
   const [logo, setLogo] = useState(null); // logo customizado desta conta, se tiver
+  const [nomeConta, setNomeConta] = useState(null); // nome exibido no topo, se a conta tiver definido
   const router = useRouter();
 
   useEffect(() => {
@@ -27,10 +28,10 @@ export default function Layout({ children, titulo, acoes }) {
     })).catch(() => {});
   }, [router]);
 
-  // logo customizado desta conta (Configurações → Logo da conta) — se não tiver, usa o padrão
+  // logo e nome exibido desta conta (Configurações → Logo da conta) — se não tiver, usa o padrão
   useEffect(() => {
     if (!sessao?.tenant) return;
-    fetch("/api/logo").then((r) => r.json()).then((j) => setLogo(j.logo || null)).catch(() => {});
+    fetch("/api/logo").then((r) => r.json()).then((j) => { setLogo(j.logo || null); setNomeConta(j.nome || null); }).catch(() => {});
   }, [sessao?.tenant]);
 
   async function sair() {
@@ -57,7 +58,16 @@ export default function Layout({ children, titulo, acoes }) {
       <Sidebar colapsada={colapsada} alternar={alternarSidebar} sessao={sessao} />
       <div className="app-main">
         <div className="topbar">
-          <img src={logo || "/logo-wide.png"} alt={sessao?.usuario || "INFO Centro"} className="logo" />
+          {logo ? (
+            <img src={logo} alt={nomeConta || sessao?.usuario || "Logo"} className="logo" />
+          ) : sessao?.tenant === "INFOCENTRO" ? (
+            <img src="/logo-wide.png" alt="INFO Centro — Assistência Especializada" className="logo" />
+          ) : (
+            <div className="logo-simples">
+              <Ico n="layoutKanban" size={22} />
+              <span>{nomeConta || sessao?.usuario || "CRM"}</span>
+            </div>
+          )}
           <span className="espaco" />
           {acoes && <div className="topbar-acoes">{acoes}</div>}
           <button className="btn-tema" onClick={alternarTema} title={temaEscuro ? "Mudar para tema claro" : "Mudar para tema escuro"} aria-label="Alternar tema">

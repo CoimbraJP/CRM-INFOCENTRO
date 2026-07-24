@@ -51,7 +51,7 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
             {aberta === "etiquetas" && <EditorEtiquetas />}
-            {aberta === "logo" && <PainelLogo />}
+            {aberta === "logo" && <PainelLogo tenant={tenant} />}
             {aberta === "pdv" && <PainelPdv />}
             {aberta === "sobre" && <PainelSobre />}
           </div>
@@ -105,12 +105,20 @@ function EditorEtiquetas() {
   );
 }
 
-function PainelLogo() {
+function PainelLogo({ tenant }) {
   const [logo, setLogo] = useState(undefined); // undefined = carregando, null = sem logo custom
+  const [nome, setNome] = useState("");
+  const [nomeSalvo, setNomeSalvo] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [salvandoNome, setSalvandoNome] = useState(false);
+  const ehInfocentro = tenant === "INFOCENTRO";
 
   useEffect(() => {
-    fetch("/api/logo").then((r) => r.json()).then((j) => setLogo(j.logo || null)).catch(() => setLogo(null));
+    fetch("/api/logo").then((r) => r.json()).then((j) => {
+      setLogo(j.logo || null);
+      setNome(j.nome || "");
+      setNomeSalvo(j.nome || null);
+    }).catch(() => setLogo(null));
   }, []);
 
   function onArquivo(e) {
@@ -141,11 +149,20 @@ function PainelLogo() {
     leitor.readAsDataURL(file);
   }
 
-  async function remover() {
-    if (!confirm("Remover o logo desta conta e voltar ao logo padrão da INFO Centro?")) return;
+  async function removerLogo() {
+    if (!confirm("Remover o logo desta conta?")) return;
     const r = await fetch("/api/logo", { method: "DELETE" });
     if (!r.ok) { alert("Não consegui remover."); return; }
     setLogo(null);
+    window.location.reload();
+  }
+
+  async function salvarNome() {
+    setSalvandoNome(true);
+    const r = await fetch("/api/logo", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome }) });
+    setSalvandoNome(false);
+    if (!r.ok) { const j = await r.json().catch(() => ({})); alert(j.error || "Não consegui salvar o nome."); return; }
+    setNomeSalvo(nome || null);
     window.location.reload();
   }
 
@@ -154,18 +171,43 @@ function PainelLogo() {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--cinza)", marginBottom: 14 }}>
-        Esse logo aparece no topo do sistema só pra quem está logado nesta conta — as outras contas continuam vendo o logo padrão (ou o próprio, se tiverem subido um).
+        Esse logo e nome aparecem no topo do sistema só pra quem está logado nesta conta — as outras contas não são afetadas.
+      </p>
+
+      <h3 style={{ fontSize: 14, marginBottom: 6 }}>Imagem do logo</h3>
+      <p style={{ fontSize: 12.5, color: "var(--cinza)", marginBottom: 10 }}>
+        Formato recomendado: <b>PNG com fundo transparente</b>, imagem larga e baixa (tipo um retângulo, não quadrada) —
+        algo em torno de <b>480×160 pixels</b> fica ideal. Qualquer tamanho funciona, a imagem é redimensionada e comprimida automaticamente ao subir.
       </p>
       <div style={{ padding: 16, border: "1px dashed var(--borda)", borderRadius: 12, background: "var(--card)", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 90 }}>
-        <img src={logo || "/logo-wide.png"} alt="Logo atual" style={{ maxWidth: "100%", maxHeight: 80 }} />
+        {logo ? (
+          <img src={logo} alt="Logo atual" style={{ maxWidth: "100%", maxHeight: 80 }} />
+        ) : (
+          <span style={{ fontSize: 12.5, color: "var(--cinza)" }}>
+            {ehInfocentro ? "Nenhum logo próprio — usando o logo padrão da INFO Centro." : "Nenhum logo próprio — o topo mostra um ícone simples com o nome desta conta."}
+          </span>
+        )}
       </div>
       <label className="btn2 primario" style={{ display: "inline-flex", cursor: "pointer" }}>
         <Ico n="upload" size={14} /> {enviando ? "Enviando…" : logo ? "Trocar logo" : "Enviar logo"}
         <input type="file" accept="image/*" onChange={onArquivo} disabled={enviando} style={{ display: "none" }} />
       </label>
       {logo && (
-        <button className="btn2 perigo" style={{ marginLeft: 10 }} onClick={remover}><Ico n="trash" size={14} /> Remover (voltar ao padrão)</button>
+        <button className="btn2 perigo" style={{ marginLeft: 10 }} onClick={removerLogo}><Ico n="trash" size={14} /> Remover logo</button>
       )}
+
+      <h3 style={{ fontSize: 14, margin: "22px 0 6px" }}>Nome exibido</h3>
+      <p style={{ fontSize: 12.5, color: "var(--cinza)", marginBottom: 10 }}>
+        {ehInfocentro
+          ? "Não é obrigatório aqui — o logo padrão já tem o nome embutido na imagem. Só preencha se quiser sobrepor com um texto simples."
+          : "Não precisa criar uma imagem de logo: basta escrever o nome que você quer que apareça no topo, ao lado de um ícone simples."}
+      </p>
+      <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
+        <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Revenda XPTO" style={{ flex: 1 }} />
+        <button className="btn2 primario" disabled={salvandoNome || nome === (nomeSalvo || "")} onClick={salvarNome}>
+          <Ico n="save" size={14} /> {salvandoNome ? "Salvando…" : "Salvar"}
+        </button>
+      </div>
     </div>
   );
 }

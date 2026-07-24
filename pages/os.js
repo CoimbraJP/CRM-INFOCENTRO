@@ -446,6 +446,7 @@ export default function OsPage() {
                   {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                 </div>
 
+                <div className="lista-corpo">
                 {cards.map((o) => {
                   const telefone = campo(o.data, "telefone");
                   const leadCRM = telefone ? leadsPorTelefone.get(normalizaFone(telefone)) : null;
@@ -488,6 +489,7 @@ export default function OsPage() {
                       zapDireto={() => window.open(waLink(telefone), "_blank")} />
                   );
                 })}
+                </div>
               </div>
             );
           })}

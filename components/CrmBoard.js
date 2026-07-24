@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Layout from "./Layout";
-import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo, novaCadencia } from "./CardKit";
+import { Card, Modal, ModalImportar, ModalEditar, ModalObs, ModalAgenda, ModalCompras, ModalTags, ModalDisparo } from "./CardKit";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
@@ -36,7 +36,6 @@ export default function CrmBoard({ board, titulo, principal }) {
   const [carregando, setCarregando] = useState(true);
   const [erroConexao, setErroConexao] = useState(null);
   const fileRef = useRef(null);
-  const [importOpts, setImportOpts] = useState({ cadencia: false });
   const dragId = useRef(null);
   const dragListaRef = useRef(null);
   const [arrastandoCard, setArrastandoCard] = useState(null);
@@ -253,7 +252,7 @@ export default function CrmBoard({ board, titulo, principal }) {
       jaExiste.add(normalizaFone(telefone));
       i++;
 
-      const lembretes = importOpts.cadencia ? novaCadencia(hoje()) : [];
+      const lembretes = [];
       // colunas "Recorrencia" (dia do mês, ex.: 10) e "Mensagem Recorrencia" (ex.: "cobrar taxa
       // mensal") viram um lembrete recorrente já agendado, igual ao criado manualmente na Agenda.
       const diaRec = parseInt(acha(row, ["recorrencia", "recorrência"]), 10);
@@ -280,8 +279,7 @@ export default function CrmBoard({ board, titulo, principal }) {
     await fetch("/api/leads?board=" + board, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(novos) });
     await carregar();
     alert(novos.length + " cliente(s) importado(s)"
-      + (importOpts.cadencia ? " com cadência D+0 / D+5 / D+30 agendada" : "")
-      + (comRecorrencia > 0 ? (importOpts.cadencia ? " e " : " com ") + comRecorrencia + " lembrete(s) recorrente(s) agendado(s)" : "")
+      + (comRecorrencia > 0 ? " com " + comRecorrencia + " lembrete(s) recorrente(s) agendado(s)" : "")
       + ".");
   }
 
@@ -562,6 +560,7 @@ export default function CrmBoard({ board, titulo, principal }) {
                     <button className="x" title="Renomear lista" onClick={() => renomearLista(lista)}><Ico n="edit" size={13} /></button>
                     {!lista.fixa && <button className="x" title="Excluir lista" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                   </div>
+                  <div className="lista-corpo">
                   {cards.map((lead) => (
                     <Card key={lead._id} lead={lead}
                       dragging={arrastandoCard === lead._id}
@@ -599,6 +598,7 @@ export default function CrmBoard({ board, titulo, principal }) {
                       alternarResposta={alternarResposta}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
                   ))}
+                  </div>
                 </div>
               );
             })}
@@ -607,9 +607,9 @@ export default function CrmBoard({ board, titulo, principal }) {
 
           {modal && (
             <Modal fechar={() => setModal(null)}>
-              {modal.tipo === "importar" && <ModalImportar opts={importOpts} setOpts={setImportOpts} fileRef={fileRef} onFile={importarArquivo} />}
+              {modal.tipo === "importar" && <ModalImportar fileRef={fileRef} onFile={importarArquivo} />}
               {modal.tipo === "novo" && <ModalEditar lead={null} onSalvar={async (dados) => {
-                await fetch("/api/leads?board=" + board, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...dados, listId: lists[0]?.key || "inbox", tagListId: "sem_etiqueta", tags: [], board, lembretes: dados.cadencia ? novaCadencia(hoje()) : [] }) });
+                await fetch("/api/leads?board=" + board, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...dados, listId: lists[0]?.key || "inbox", tagListId: "sem_etiqueta", tags: [], board, lembretes: [] }) });
                 setModal(null); carregar();
               }} />}
               {modal.tipo === "editar" && <ModalEditar lead={leads.find((l) => l._id === modal.lead._id)} onSalvar={(dados) => { salvarLead({ ...modal.lead, ...dados }); setModal(null); }} onExcluir={() => excluirLead(modal.lead._id)} />}

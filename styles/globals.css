@@ -79,6 +79,9 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   border-bottom: 2px solid var(--accent);
 }
 .topbar .logo { height: 44px; width: auto; display: block; }
+/* contas sem logo próprio (fora INFOCENTRO) mostram um ícone simples + o nome que definirem */
+.topbar .logo-simples { display: flex; align-items: center; gap: 10px; color: var(--topbar-texto); font-weight: 800; font-size: 16px; }
+.topbar .logo-simples .ico { flex-shrink: 0; }
 .topbar .espaco { margin-right: auto; }
 .topbar-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .topbar input[type="text"] {
@@ -161,18 +164,25 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .ph-item .nome { font-weight: 700; }
 .ph-msg { font-size: 12.5px; color: var(--cinza); width: 100%; line-height: 1.5; }
 
-/* ---------- board ---------- */
-.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: flex-start; min-height: 60vh; }
+/* ---------- board ----------
+   Cada lista tem altura própria (limitada ao que sobra da tela) e rola por dentro,
+   independente das outras — assim, mesmo com 50 clientes numa lista, as listas vizinhas
+   continuam inteiras e visíveis ao lado, cabeçalho incluso, inclusive durante o arraste. */
+.board { display: flex; gap: 14px; padding: 16px 20px 28px; overflow-x: auto; align-items: stretch; height: calc(100vh - 250px); min-height: 420px; }
 .board::-webkit-scrollbar { height: 10px; }
 .board::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
 .lista {
   background: var(--lista-bg); border-radius: 14px; min-width: 292px; max-width: 292px;
   border-top: 4px solid var(--accent); padding: 10px; position: relative;
   transition: outline-color .15s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
+  display: flex; flex-direction: column;
 }
 .lista.drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-suave); }
-.lista-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; cursor: grab; transition: opacity .15s ease; }
+.lista-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; cursor: grab; transition: opacity .15s ease; flex-shrink: 0; }
 .lista-head:active { cursor: grabbing; }
+.lista-corpo { flex: 1; overflow-y: auto; min-height: 0; padding-right: 2px; }
+.lista-corpo::-webkit-scrollbar { width: 8px; }
+.lista-corpo::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 8px; }
 .lista.lista-arrastando { opacity: .45; transform: scale(.98); box-shadow: var(--sombra-alta); }
 .lista.drop-antes::before, .lista.drop-depois::after {
   content: ""; position: absolute; top: 8px; bottom: 8px; width: 4px; border-radius: 4px;
@@ -271,7 +281,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 
 .add-lista {
   min-width: 250px; background: transparent; border: 2px dashed var(--borda); border-radius: 14px;
-  padding: 16px; color: var(--cinza); font-weight: 700;
+  padding: 16px; color: var(--cinza); font-weight: 700; align-self: flex-start;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: border-color .2s ease, color .2s ease;
 }
@@ -349,7 +359,7 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
   .btn { padding: 8px 11px; font-size: 12px; }
   .btn .btn-rotulo { display: none; }
   .painel-hoje { margin: 12px 12px 0; }
-  .board { padding: 12px 12px 20px; gap: 10px; }
+  .board { padding: 12px 12px 20px; gap: 10px; height: calc(100vh - 300px); min-height: 360px; }
   .lista { min-width: 272px; max-width: 272px; }
 }
 

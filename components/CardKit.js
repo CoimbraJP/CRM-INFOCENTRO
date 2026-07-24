@@ -82,7 +82,7 @@ export function Modal({ children, fechar }) {
   );
 }
 
-export function ModalImportar({ opts, setOpts, fileRef, onFile }) {
+export function ModalImportar({ fileRef, onFile }) {
   return (
     <div>
       <h2><Ico n="upload" /> Importar planilha Excel</h2>
@@ -94,10 +94,6 @@ export function ModalImportar({ opts, setOpts, fileRef, onFile }) {
         Se a planilha tiver as colunas <b>Recorrencia</b> (dia do mês, ex.: 10) e <b>Mensagem Recorrencia</b> (ex.: &quot;cobrar taxa mensal&quot;),
         um lembrete recorrente já entra agendado pra esse cliente, avisando todo mês nesse dia.
       </p>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0", fontSize: 14, color: "var(--texto)", fontWeight: 400 }}>
-        <input type="checkbox" checked={opts.cadencia} onChange={(e) => setOpts({ ...opts, cadencia: e.target.checked })} />
-        Preencher agenda automática: <b>D+0, D+5 e D+30</b> com as mensagens prontas
-      </label>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} />
     </div>
   );
@@ -106,7 +102,7 @@ export function ModalImportar({ opts, setOpts, fileRef, onFile }) {
 export function ModalEditar({ lead, onSalvar, onExcluir }) {
   const [f, setF] = useState({
     nome: lead?.nome || "", telefone: lead?.telefone || "", servico: lead?.servico || "",
-    nascimento: lead?.nascimento || "", cadencia: false,
+    nascimento: lead?.nascimento || "",
   });
   return (
     <div>
@@ -119,12 +115,6 @@ export function ModalEditar({ lead, onSalvar, onExcluir }) {
       <input type="text" value={f.servico} onChange={(e) => setF({ ...f, servico: e.target.value })} placeholder="Impressão, formatação, orçamento…" />
       <label>Data de nascimento</label>
       <input type="date" value={f.nascimento?.includes("-") ? f.nascimento : ""} onChange={(e) => setF({ ...f, nascimento: e.target.value })} />
-      {!lead && (
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, color: "var(--texto)", fontWeight: 400, fontSize: 14 }}>
-          <input type="checkbox" checked={f.cadencia} onChange={(e) => setF({ ...f, cadencia: e.target.checked })} />
-          Preencher agenda D+0 / D+5 / D+30
-        </label>
-      )}
       <div className="acoes">
         {lead && <button className="btn2 perigo" onClick={onExcluir}><Ico n="trash" size={14} /> Excluir</button>}
         <button className="btn2 primario" onClick={() => f.telefone ? onSalvar(f) : alert("Telefone é obrigatório")}><Ico n="check" size={14} /> Salvar</button>
@@ -162,7 +152,6 @@ export function ModalAgenda({ lead, salvar, enviar, templates, msgDoLembrete }) 
   const [novo, setNovo] = useState({ data: hoje(), diaDoMes: 10, texto: "" });
   const [recorrente, setRecorrente] = useState(false);
   if (!lead) return null;
-  const temCadencia = (lead.lembretes || []).some((l) => l.tipo === "D0");
   const anoMesAtual = hoje().slice(0, 7);
 
   function marcarFeitoRecorrente(lem, desfazer) {
@@ -172,12 +161,6 @@ export function ModalAgenda({ lead, salvar, enviar, templates, msgDoLembrete }) 
   return (
     <div>
       <h2><Ico n="calendar" /> Agenda de mensagens — {lead.nome || lead.telefone}</h2>
-      {!temCadencia && (
-        <button className="btn2 primario" style={{ marginBottom: 10 }}
-          onClick={() => salvar({ ...lead, lembretes: [...(lead.lembretes || []), ...novaCadencia(hoje())] })}>
-          <Ico n="zapRaio" size={15} /> Preencher cadência D+0 / D+5 / D+30
-        </button>
-      )}
       {(lead.lembretes || []).length === 0 && <div className="vazio">Nenhuma mensagem agendada.</div>}
       {(lead.lembretes || []).map((lem) => {
         if (lem.recorrente) {

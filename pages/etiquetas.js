@@ -142,6 +142,7 @@ export default function EtiquetasPage() {
                     <span className="soma">{soma > 0 ? fmtDinheiro(soma) : ""}</span>
                     {!lista.fixa && <button className="x" title="Excluir coluna" onClick={() => excluirLista(lista)}><Ico n="x" size={14} /></button>}
                   </div>
+                  <div className="lista-corpo">
                   {cards.map((lead) => (
                     <Card key={lead._id} lead={lead}
                       onDragStart={() => (dragId.current = lead._id)}
@@ -149,6 +150,7 @@ export default function EtiquetasPage() {
                       alternarResposta={alternarResposta}
                       zapDireto={() => window.open(waLink(lead.telefone), "_blank")} />
                   ))}
+                  </div>
                 </div>
               );
             })}
