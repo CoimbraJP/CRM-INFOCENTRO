@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { Ico } from "../lib/icons";
-import { partesNascimento } from "../lib/crmHelpers";
+import { partesNascimento, hoje, addDias } from "../lib/crmHelpers";
 
 const ITENS = [
   { href: "/", rota: "/", label: "CRM", icone: "layoutKanban" },
@@ -21,11 +21,13 @@ const DOW_LETRA = ["D", "S", "T", "Q", "Q", "S", "S"];
 // liga/desliga pelo botão "Manter calendário lateral" na tela Calendário (fica visível em qualquer tela)
 function MiniCalendario() {
   const [leads, setLeads] = useState([]);
+  const [listas, setListas] = useState([]);
   const hoje0 = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
   const ano = hoje0.getFullYear(), mes = hoje0.getMonth(); // 0-11
 
   useEffect(() => {
     fetch("/api/leads").then((r) => r.json()).then((j) => setLeads(Array.isArray(j) ? j : [])).catch(() => {});
+    fetch("/api/lists?todos=1").then((r) => r.json()).then((j) => setListas(Array.isArray(j) ? j : [])).catch(() => {});
   }, []);
 
   const diasComEvento = useMemo(() => {
@@ -41,6 +43,28 @@ function MiniCalendario() {
     }
     return set;
   }, [leads, ano, mes]);
+
+  // marca-texto do prazo das listas (só listas com prazo E cliente) — dias do mês exibido que
+  // caem no intervalo hoje→prazo
+  const diasPrazo = useMemo(() => {
+    const set = new Set();
+    const h = hoje();
+    const mesIso = `${ano}-${String(mes + 1).padStart(2, "0")}`;
+    for (const l of listas) {
+      if (!l.prazo) continue;
+      const lb = l.board || "crm";
+      const temCliente = leads.some((x) => (x.board || "crm") === lb && x.listId === l.key);
+      if (!temCliente) continue;
+      const inicio = l.prazo < h ? l.prazo : h;
+      const fim = l.prazo < h ? h : l.prazo;
+      let cur = inicio, guarda = 0;
+      while (cur <= fim && guarda++ < 400) {
+        if (cur.slice(0, 7) === mesIso) set.add(Number(cur.slice(8, 10)));
+        cur = addDias(cur, 1);
+      }
+    }
+    return set;
+  }, [listas, leads, ano, mes]);
 
   const celulas = useMemo(() => {
     const primeiro = new Date(ano, mes, 1);
@@ -58,7 +82,7 @@ function MiniCalendario() {
       <div className="mini-cal-grid">
         {DOW_LETRA.map((d, i) => <span key={i} className="mini-cal-dow">{d}</span>)}
         {celulas.map((d, i) => (
-          <Link key={i} href="/calendario" className={"mini-cal-dia" + (d === hoje0.getDate() ? " hoje" : "") + (!d ? " vazio" : "")}>
+          <Link key={i} href="/calendario" className={"mini-cal-dia" + (d === hoje0.getDate() ? " hoje" : "") + (!d ? " vazio" : "") + (d && diasPrazo.has(d) ? " prazo" : "")}>
             {d || ""}
             {d && diasComEvento.has(d) && <span className="mini-cal-dot" />}
           </Link>

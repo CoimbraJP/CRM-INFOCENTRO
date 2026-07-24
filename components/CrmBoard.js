@@ -316,23 +316,6 @@ export default function CrmBoard({ board, titulo, principal }) {
     XLSX.writeFile(wb, "CRM_InfoCentro_" + titulo.replace(/[^a-zA-Z0-9]+/g, "_") + "_Backup_" + hoje() + ".xlsx");
   }
 
-  async function limparTudo() {
-    if (leads.length === 0) { alert("Já não há clientes cadastrados neste CRM."); return; }
-    const passo1 = confirm(
-      `Isso vai apagar PERMANENTEMENTE os ${leads.length} clientes deste CRM (cards, observações, compras, mensagens agendadas).\n\n` +
-      `NÃO afeta os outros quadros de CRM nem a página OS.\n\n` +
-      `Recomendo clicar em "Backup" antes, se ainda não fez. Quer continuar?`
-    );
-    if (!passo1) return;
-    const digitado = prompt('Última confirmação: digite APAGAR (tudo maiúsculo) para excluir todos os clientes.');
-    if (digitado !== "APAGAR") { if (digitado !== null) alert("Não bateu com \"APAGAR\" — nada foi apagado."); return; }
-    const r = await fetch("/api/leads?board=" + board + "&all=1&confirmar=APAGAR", { method: "DELETE" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) { alert("Não consegui limpar: " + (j.error || r.status)); return; }
-    setLeads([]);
-    alert(`${j.apagados ?? 0} cliente(s) apagado(s). Este CRM está zerado.`);
-  }
-
   async function excluirQuadro() {
     const passo1 = confirm(`Isso vai excluir PERMANENTEMENTE o quadro "${titulo}" — todos os ${leads.length} cliente(s) e listas dele. Quer continuar?`);
     if (!passo1) return;
@@ -423,7 +406,6 @@ export default function CrmBoard({ board, titulo, principal }) {
       <button className="btn" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> <span className="btn-rotulo">Cliente</span></button>
       <button className="btn" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> <span className="btn-rotulo">Importar</span></button>
       <button className="btn destaque" onClick={exportar}><Ico n="download" size={15} /> <span className="btn-rotulo">Backup</span></button>
-      <button className="btn perigo" onClick={limparTudo} title="Apaga todos os clientes deste CRM"><Ico n="trash" size={15} /> <span className="btn-rotulo">Limpar dados</span></button>
       {!principal && (
         <button className="btn perigo" onClick={excluirQuadro} title="Exclui este quadro de CRM inteiro"><Ico n="x" size={15} /> <span className="btn-rotulo">Excluir quadro</span></button>
       )}

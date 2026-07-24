@@ -74,6 +74,14 @@ export default async function handler(req, res) {
 
     const db = await getDb();
     const col = db.collection("lists");
+
+    // modo especial: todas as listas do usuário (todos os boards), sem seed — usado pelo Calendário
+    // pra pintar o intervalo de prazo (timer) das listas. Só leitura.
+    if (req.method === "GET" && (req.query.todos === "1" || req.query.board === "__all__")) {
+      const todas = await col.find(filtroT).sort({ ordem: 1 }).toArray();
+      return res.status(200).json(todas);
+    }
+
     const board = (req.query.board || req.body?.board || "crm").toString();
     // trata registros antigos (sem campo board) como pertencentes ao board "crm"
     const filtroBoard = board === "crm" ? { $or: [{ board: "crm" }, { board: { $exists: false } }] } : { board };

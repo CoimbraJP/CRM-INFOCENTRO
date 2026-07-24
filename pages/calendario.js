@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import { Ico, IcoZap } from "../lib/icons";
 import { useTemplates } from "../lib/TemplatesContext";
-import { fmtBR, primeiroNome, waLink, partesNascimento } from "../lib/crmHelpers";
+import { fmtBR, primeiroNome, waLink, partesNascimento, hoje, addDias } from "../lib/crmHelpers";
 import { useCalendarioLateral } from "../lib/useCalendarioLateral";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -15,6 +15,7 @@ function isoLocal(y, m, d) {
 export default function CalendarioPage() {
   const { render } = useTemplates();
   const [leads, setLeads] = useState([]);
+  const [listas, setListas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
   const [ano, setAno] = useState(hoje0.getFullYear());
@@ -23,8 +24,33 @@ export default function CalendarioPage() {
   const [calendarioLateral, alternarCalendarioLateral] = useCalendarioLateral();
 
   useEffect(() => {
-    fetch("/api/leads").then((r) => r.json()).then((j) => { setLeads(Array.isArray(j) ? j : []); setCarregando(false); });
+    Promise.all([
+      fetch("/api/leads").then((r) => r.json()).catch(() => []),
+      fetch("/api/lists?todos=1").then((r) => r.json()).catch(() => []),
+    ]).then(([jl, jli]) => {
+      setLeads(Array.isArray(jl) ? jl : []);
+      setListas(Array.isArray(jli) ? jli : []);
+      setCarregando(false);
+    });
   }, []);
+
+  // marca-texto do PRAZO das listas: pinta de hoje até o dia do prazo (inclusive), mas só das
+  // listas que têm prazo E pelo menos um cliente dentro (mesma regra do aviso de prazo vencido).
+  const diasPrazo = useMemo(() => {
+    const set = new Set();
+    const h = hoje();
+    for (const l of listas) {
+      if (!l.prazo) continue;
+      const lb = l.board || "crm";
+      const temCliente = leads.some((x) => (x.board || "crm") === lb && x.listId === l.key);
+      if (!temCliente) continue;
+      const inicio = l.prazo < h ? l.prazo : h; // se já venceu, pinta do prazo até hoje
+      const fim = l.prazo < h ? h : l.prazo;
+      let cur = inicio, guarda = 0;
+      while (cur <= fim && guarda++ < 400) { set.add(cur); cur = addDias(cur, 1); }
+    }
+    return set;
+  }, [listas, leads]);
 
   // mapa data(YYYY-MM-DD) -> lista de eventos {tipo:'msg'|'niver', lead, lem?, atrasado?}
   const eventosPorDia = useMemo(() => {
@@ -121,7 +147,7 @@ export default function CalendarioPage() {
                   const temNiver = evs.some((e) => e.tipo === "niver");
                   return (
                     <div key={i}
-                      className={"cal-dia" + (iso === hojeIso ? " hoje" : "") + (iso === selecionado ? " selecionado" : "")}
+                      className={"cal-dia" + (iso === hojeIso ? " hoje" : "") + (iso === selecionado ? " selecionado" : "") + (diasPrazo.has(iso) ? " prazo" : "")}
                       onClick={() => setSelecionado(iso)}>
                       <span>{d}</span>
                       {(temMsg || temAtrasada || temNiver) && (

@@ -6,6 +6,7 @@ import { useTags } from "../lib/TagsContext";
 const CONFIG_META_BASE = [
   { id: "etiquetas", titulo: "Etiquetas", subtitulo: "Nomes e cores — usados em todo o sistema", icone: "tag" },
   { id: "logo", titulo: "Logo da conta", subtitulo: "Imagem exibida no topo, só nesta conta", icone: "laptop" },
+  { id: "limpar", titulo: "Limpar dados", subtitulo: "Apagar todos os clientes do CRM", icone: "trash" },
 ];
 // Integração PDV e Sobre só existem na conta INFOCENTRO (é onde a integração com o PDV acontece)
 const CONFIG_META_INFOCENTRO = [
@@ -52,12 +53,46 @@ export default function ConfiguracoesPage() {
             </div>
             {aberta === "etiquetas" && <EditorEtiquetas />}
             {aberta === "logo" && <PainelLogo tenant={tenant} />}
+            {aberta === "limpar" && <PainelLimparDados />}
             {aberta === "pdv" && <PainelPdv />}
             {aberta === "sobre" && <PainelSobre />}
           </div>
         )}
       </div>
     </Layout>
+  );
+}
+
+function PainelLimparDados() {
+  const [apagando, setApagando] = useState(false);
+
+  async function limpar() {
+    const passo1 = confirm(
+      "Isso vai apagar PERMANENTEMENTE todos os clientes do CRM principal (cards, observações, compras, mensagens agendadas).\n\n" +
+      "NÃO afeta a página OS nem os outros quadros de CRM.\n\n" +
+      "Recomendo fazer um Backup antes (botão Backup na tela do CRM). Quer continuar?"
+    );
+    if (!passo1) return;
+    const digitado = prompt('Última confirmação: digite APAGAR (tudo maiúsculo) para excluir todos os clientes.');
+    if (digitado !== "APAGAR") { if (digitado !== null) alert('Não bateu com "APAGAR" — nada foi apagado.'); return; }
+    setApagando(true);
+    const r = await fetch("/api/leads?board=crm&all=1&confirmar=APAGAR", { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    setApagando(false);
+    if (!r.ok) { alert("Não consegui limpar: " + (j.error || r.status)); return; }
+    alert(`${j.apagados ?? 0} cliente(s) apagado(s). O CRM principal está zerado.`);
+  }
+
+  return (
+    <div>
+      <div className="aviso" style={{ marginBottom: 14 }}>
+        <b>Atenção:</b> esta ação é permanente e não tem desfazer. Apaga todos os clientes do CRM principal.
+        Faça um <b>Backup</b> antes (botão Backup na tela do CRM) se ainda não fez.
+      </div>
+      <button className="btn2 perigo" disabled={apagando} onClick={limpar}>
+        <Ico n="trash" size={15} /> {apagando ? "Apagando…" : "Apagar todos os clientes do CRM"}
+      </button>
+    </div>
   );
 }
 

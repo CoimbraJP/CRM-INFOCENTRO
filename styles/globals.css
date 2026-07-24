@@ -15,6 +15,7 @@
   --card: #ffffff;
   --lista-bg: #e9eeec;
   --lista-head-bg: #d7e0dd;
+  --prazo-marca: #fef08a;
   --texto: #1f2937;
   --cinza: #6b7280;
   --borda: #e5e7eb;
@@ -42,6 +43,7 @@
   --card: #1d1f24;
   --lista-bg: #191b1f;
   --lista-head-bg: #26292f;
+  --prazo-marca: rgba(242, 194, 0, .28);
   --texto: #e8e8e5;
   --cinza: #9aa1ab;
   --borda: #2d3038;
@@ -528,6 +530,7 @@ button.sidebar-item {
 }
 .mini-cal-dia:hover { background: var(--accent-suave); }
 .mini-cal-dia.vazio { pointer-events: none; }
+.mini-cal-dia.prazo { background: var(--prazo-marca); color: var(--texto); }
 .mini-cal-dia.hoje { background: var(--accent); color: var(--accent-texto); font-weight: 900; }
 .mini-cal-dot {
   position: absolute; bottom: 0px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-forte);
@@ -779,6 +782,8 @@ button.sidebar-item {
 }
 .cal-dia:hover { border-color: var(--accent); }
 .cal-dia.fora-do-mes { opacity: .3; pointer-events: none; }
+/* marca-texto do prazo das listas — pinta os dias de hoje até o prazo (tipo caneta marca-texto) */
+.cal-dia.prazo { background: var(--prazo-marca); }
 .cal-dia.hoje { border-color: var(--accent); font-weight: 900; }
 .cal-dia.selecionado { background: var(--accent); color: var(--accent-texto); }
 .cal-dots { display: flex; gap: 5px; }
