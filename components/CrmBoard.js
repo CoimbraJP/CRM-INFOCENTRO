@@ -7,7 +7,6 @@ import { useTemplates } from "../lib/TemplatesContext";
 import { useTags } from "../lib/TagsContext";
 import { STRATEGY_META } from "../lib/messages";
 import { hoje, addDias, fmtBR, fmtDinheiro, normalizaFone, waLink, primeiroNome, ehAniversarioHoje } from "../lib/crmHelpers";
-import { useModoExpandido } from "../lib/useModoExpandido";
 import { useAutoScrollDrag } from "../lib/useAutoScrollDrag";
 
 // por hora, só a Apresentação (D0) conta como enviada automaticamente e move o card pra uma
@@ -29,8 +28,13 @@ export default function CrmBoard({ board, titulo, principal }) {
   const { tags: TAGS } = useTags();
   const msgDoLembrete = msgDoLembreteFactory(render);
   const router = useRouter();
-  const [expandido, alternarExpandido] = useModoExpandido();
   const { aoArrastarSobre, pararAutoScroll } = useAutoScrollDrag();
+  // barra "Enviar hoje" começa DESATIVADA; o botão do topo liga/desliga ela (preferência salva)
+  const [mostrarEnviarHoje, setMostrarEnviarHoje] = useState(false);
+  useEffect(() => { try { setMostrarEnviarHoje(localStorage.getItem("crm-enviar-hoje") === "1"); } catch (e) {} }, []);
+  function alternarEnviarHoje() {
+    setMostrarEnviarHoje((v) => { const n = !v; try { localStorage.setItem("crm-enviar-hoje", n ? "1" : "0"); } catch (e) {} return n; });
+  }
 
   const [leads, setLeads] = useState([]);
   const [lists, setLists] = useState([]);
@@ -409,8 +413,12 @@ export default function CrmBoard({ board, titulo, principal }) {
   const acoesTopbar = !carregando && !erroConexao && (
     <>
       <input type="text" placeholder="Buscar nome, telefone, serviço ou etiqueta…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-      <button className="btn" onClick={alternarExpandido} title={expandido ? "Voltar ao normal" : "Expandir quadro (mais espaço pras listas)"}>
-        <Ico n={expandido ? "recolher" : "expandir"} size={15} /> <span className="btn-rotulo">{expandido ? "Recolher" : "Expandir"}</span>
+      <button
+        className={"btn" + (pendencias.length > 0 && !mostrarEnviarHoje ? " btn-alerta" : "")}
+        onClick={alternarEnviarHoje}
+        title={mostrarEnviarHoje ? "Ocultar a barra Enviar hoje" : "Mostrar a barra Enviar hoje"}>
+        <Ico n="inbox" size={15} /> <span className="btn-rotulo">Enviar hoje{mostrarEnviarHoje ? ": ON" : ""}</span>
+        {pendencias.length > 0 && <span className="btn-alerta-badge">{pendencias.length}</span>}
       </button>
       <button className="btn" onClick={() => setModal({ tipo: "novo" })}><Ico n="plus" size={15} /> <span className="btn-rotulo">Cliente</span></button>
       <button className="btn" onClick={() => setModal({ tipo: "importar" })}><Ico n="upload" size={15} /> <span className="btn-rotulo">Importar</span></button>
@@ -444,7 +452,7 @@ export default function CrmBoard({ board, titulo, principal }) {
       )}
       {!carregando && !erroConexao && (
         <>
-          {!expandido && listasVencidas.length > 0 && (
+          {listasVencidas.length > 0 && (
             <div className="faixa-prazo">
               <Ico n="alerta" size={16} />
               <span>
@@ -457,7 +465,7 @@ export default function CrmBoard({ board, titulo, principal }) {
               </span>
             </div>
           )}
-          {!expandido && (
+          {mostrarEnviarHoje && (
           <div className="painel-hoje">
             <div className="ph-head" onClick={() => setPainelAberto(!painelAberto)}>
               <Ico n="inbox" /> Enviar hoje {pendencias.length > 0 && <span className="ph-badge">{pendencias.length}</span>}
@@ -521,7 +529,7 @@ export default function CrmBoard({ board, titulo, principal }) {
           </div>
           )}
 
-          <div className={"board" + (expandido ? " board-expandido" : "")}>
+          <div className="board">
             {lists.map((lista) => {
               const cards = leadsFiltrados.filter((l) => l.listId === lista.key)
                 .sort((a, b) => (a.ordem ?? Infinity) - (b.ordem ?? Infinity));

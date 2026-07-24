@@ -120,6 +120,18 @@ svg.ico { width: 18px; height: 18px; flex-shrink: 0; }
 .btn.destaque:hover { background: var(--accent-forte); }
 .btn.perigo { background: rgba(220, 38, 38, .35); color: #fff; }
 .btn.perigo:hover { background: rgba(220, 38, 38, .55); }
+/* botão "Enviar hoje" pisca (anel pulsante) quando há evento pendente pra hoje e a barra está oculta */
+.btn.btn-alerta { position: relative; background: var(--accent); color: var(--accent-texto); animation: btn-alerta-pulse 1.25s ease-in-out infinite; }
+.btn.btn-alerta:hover { background: var(--accent-forte); }
+@keyframes btn-alerta-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 65%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+.btn-alerta-badge {
+  background: var(--vermelho); color: #fff; border-radius: 999px; min-width: 18px; height: 18px;
+  padding: 0 5px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
 .btn-tema {
   display: inline-flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 50%; border: none;
